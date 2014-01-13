@@ -832,6 +832,12 @@ def	c(debugger, command, result, dict):
 
 def	r(debugger, command, result, dict):
 	res = lldb.SBCommandReturnObject();
+	index = command.find("-c/bin/sh --");
+	if index != -1:
+		command = command[index+12:]
+	#process by default is started as -c/bin/sh -- cmd line...
+	#strip -- cmdline and execute with our arguments process launch -- will take care of 
+	#adding proper arguments...
 	lldb.debugger.GetCommandInterpreter().HandleCommand("process launch -- " + command, res);
 
 '''
