@@ -832,10 +832,10 @@ def	c(debugger, command, result, dict):
 
 def	r(debugger, command, result, dict):
 	res = lldb.SBCommandReturnObject();
-	index = command.find("-c/bin/sh --");
-	if index != -1:
-		command = command[index+12:]
-	#strip -c/bin/sh -- when arguments are passed to cmd line...
+	if command[0:3] == "-c/":
+                index = command.find("--");
+                command = command[index+2:];
+	#strip -c/bin/sh or -c/bin/bash -- when arguments are passed to cmd line...
 	lldb.debugger.GetCommandInterpreter().HandleCommand("process launch -- " + command, res);
 
 '''
