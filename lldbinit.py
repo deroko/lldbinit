@@ -26,7 +26,7 @@
 	xcodebuild -configuration Release
 
 Commands which are implemented:
-	stepo       - stepo over some instructions (call/movs/stos/cmps/loop)
+	stepo       - step over some instructions (call/movs/stos/cmps/loop)
 	dd          - dump hex data at certain address (keep compatibility with .gdbinit)
 		      this shoud be db command
 	ctx/context - dump registers and assembly
