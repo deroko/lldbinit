@@ -24,8 +24,8 @@ Similar implementation of .gdbinit from fG! for lldb in python
     svn co http://llvm.org/svn/llvm-project/lldb/trunk lldb
     xcodebuild -configuration Release
 
-Commands which are iplemented:
-    stepo       - stepos over some instructions (call/movs/stos/cmps/loop)
+Commands which are implemented:
+    stepo       - stepo over some instructions (call/movs/stos/cmps/loop)
     dd          - dump hex data at certain address (keep compatibility with .gdbinit)
                   this shoud be db command
     ctx/context - dump registers and assembly
