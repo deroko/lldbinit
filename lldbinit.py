@@ -25,6 +25,11 @@
 	svn co http://llvm.org/svn/llvm-project/lldb/trunk lldb
 	xcodebuild -configuration Release
 
+	From latest update of lldb there is change in handling IO, so to use
+	this script and be compatible with Apple's lldb you need to checkout
+	revision r200253 and you can do that by typing:
+	svn co -r r200253 http://llvm.org/svn/llvm-project/lldb/trunk
+
 Commands which are implemented:
 	stepo       - step over some instructions (call/movs/stos/cmps/loop)
 	dd          - dump hex data at certain address (keep compatibility with .gdbinit)
