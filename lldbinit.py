@@ -196,6 +196,19 @@ def	get_arch():
 def 	get_frame():
         return lldb.debugger.GetSelectedTarget().process.selected_thread.GetSelectedFrame(); 
 
+#handle all iXXX (i386/i686) cases
+def	is_i386():
+	arch = get_arch();
+	if arch[0:1] == "i":
+		return True;
+	return False;
+
+def	is_x64():
+	arch = get_arch();
+	if arch == "x86_64":
+		return True;
+	return False;
+
 def	color_reset():
 	output("\033[0m");
 def	color_bold():
@@ -725,9 +738,9 @@ def	reg32():
 
 def print_registers():
 	arch = get_arch();
-	if arch == "i386":
+	if is_i386(): 
 		reg32();
-	elif arch == "x86_64":
+	elif is_x64():
 		reg64();
 
 def get_GPRs():
@@ -749,16 +762,16 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 	GlobalListOutput = [];
 	
 	arch = get_arch();
-	if arch != "i386" and arch != "x86_64":
+	if not is_i386() and not is_x64():
 		#this is for ARM probably in the future... when I will need it...
 		print("Unknown architecture : " + arch);
 		return;
 	
 	output("\n");
 	color(COLOR_SEPARATOR);
-	if arch == "i386":
+	if is_i386():
         	output("---------------------------------------------------------------------------------");
-	elif arch == "x86_64":
+	elif is_x64():
 	        output("-----------------------------------------------------------------------------------------------------------------------");
 	        
 	color_bold();
@@ -767,17 +780,17 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 	print_registers();
 	
 	color(COLOR_SEPARATOR);
-	if arch == "i386":
+	if is_i386():
         	output("---------------------------------------------------------------------------------");
-	elif arch == "x86_64":
+	elif is_x64():
 	        output("-----------------------------------------------------------------------------------------------------------------------");
 	color_bold();
 	output("[code]\n");
 	color_reset();
 	
-	if arch == "i386":
+	if is_i386():
         	pc = get_register("eip");
-	elif arch == "x86_64":
+	elif is_x64():
 	        pc = get_register("rip");
 	        
 	#debugger.HandleCommand("disassemble --start-address=" + pc + " --count=8");
@@ -785,9 +798,9 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
         lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=" + pc + " --count=8", res)
         output(res.GetOutput());
         color(COLOR_SEPARATOR);
-        if arch == "i386":
+        if is_i386():
                 output("---------------------------------------------------------------------------------------");
-        elif arch == "x86_64":
+        elif is_x64():
                 output("-----------------------------------------------------------------------------------------------------------------------------");
         color_reset();
        	output("\n");
@@ -891,9 +904,9 @@ def	stepo(debugger, command, result, dict):
         
         err = lldb.SBError();
         target = lldb.debugger.GetSelectedTarget();
-        if arch == "i386":
+        if is_i386():
                 pc = lldb.SBAddress(int(get_register("eip"), 16), target);
-        elif arch == "x86_64":
+        elif is_x64():
                 pc = lldb.SBAddress(int(get_register("rip"), 16), target);
                 
         inst = lldb.SBTarget.ReadInstructions(target, pc, 2 , "intel");
@@ -902,9 +915,9 @@ def	stepo(debugger, command, result, dict):
         pc_inst = str(pc_inst).split()[1];
         
         pc_inst = inst[0].GetMnemonic(target);
-        if arch == "i386":
+        if is_i386():
                 pc = int(get_register("eip"), 16) + inst[0].GetByteSize();
-        elif arch == "x86_64":
+        elif is_x64():
                 pc = int(get_register("rip"), 16) + inst[0].GetByteSize();
                 
         if "call" in pc_inst or "movs" in pc_inst or "stos" in pc_inst or "loop" in pc_inst or "cmps" in pc_inst:
@@ -922,9 +935,9 @@ def hexdump(addr, chars, sep, width ):
 	        chars = chars[width:]
 	        line = line.ljust( width, '\000' )
 	        arch = get_arch();
-		if arch == "i386":
+		if is_i386():
 			szaddr = "0x%.08X" % addr;
-	        elif arch == "x86_64":
+	        elif is_x64():
 			szaddr = "0x%.016lX" % addr;
 		l.append("\033[1m%s :\033[0m %s%s \033[1m%s\033[0m" % (szaddr, sep.join( "%02X" % ord(c) for c in line ), sep, quotechars( line )));
 	        addr += 0x10;
@@ -964,10 +977,10 @@ def     dd(debugger, command, result, dict):
                 return;
                 
         color(BLUE);
-        if arch == "i386":
+        if is_i386():
                 output("[0x0000:0x%.08X]" % value);
                 output("------------------------------------------------------");
-        elif arch == "x86_64":
+        elif is_x64():
                 output("[0x0000:0x%.016lX]" % value);
                 output("------------------------------------------------------");
         color_bold();
@@ -978,9 +991,9 @@ def     dd(debugger, command, result, dict):
         index = 0;
         while index < 0x100:
                 data = struct.unpack("B"*16, membuff[index:index+0x10]);
-                if arch == "i386":
+                if is_i386:
                         szaddr = "0x%.08X" % value;
-                elif arch == "x86_64":
+                elif is_x64:
                         szaddr = "0x%.016lX" % value;
 		fmtnice = "%.02X %.02X %.02X %.02X %.02X %.02X %.02X %.02X"
 		fmtnice = fmtnice + " - " + fmtnice;
@@ -1039,10 +1052,10 @@ def     dq(debugger, command, result, dict):
                 return;
 
         color(BLUE);
-        if arch == "i386":
+        if is_i386():
                 output("[0x0000:0x%.08X]" % value);
                 output("-------------------------------------------------------");
-        elif arch == "x86_64":
+        elif is_x64():
                 output("[0x0000:0x%.016lX]" % value);
                 output("-------------------------------------------------------");
         color_bold();
@@ -1052,9 +1065,9 @@ def     dq(debugger, command, result, dict):
 	index = 0;
 	while index < 0x100:
 		(mem0, mem1, mem2, mem3) = struct.unpack("QQQQ", membuff[index:index+0x20]);
-		if arch == "i386":
+		if is_i386():
 			szaddr = "0x%.08X" % value;
-		elif arch == "x86_64":
+		elif is_x64():
 			szaddr = "0x%.016lX" % value;
 		output("\033[1m%s :\033[0m %.016lX %.016lX %.016lX %.016lX" % (szaddr, mem0, mem1, mem2, mem3));
 		if index + 0x20 != 0x100:
@@ -1091,10 +1104,10 @@ def     ddword(debugger, command, result, dict):
                 return;
 
         color(BLUE);
-        if arch == "i386":
+        if is_i386():
                 output("[0x0000:0x%.08X]" % value);
                 output("----------------------------------------");
-        elif arch == "x86_64":
+        elif is_x64():
                 output("[0x0000:0x%.016lX]" % value);
                 output("----------------------------------------");
         color_bold();
@@ -1104,9 +1117,9 @@ def     ddword(debugger, command, result, dict):
         index = 0;
         while index < 0x100:
                 (mem0, mem1, mem2, mem3) = struct.unpack("IIII", membuff[index:index+0x10]);
-                if arch == "i386":
+                if is_i386():
                         szaddr = "0x%.08X" % value;
-                elif arch == "x86_64":
+                elif is_x64():
                         szaddr = "0x%.016lX" % value;
                 output("\033[1m%s :\033[0m %.08X %.08X %.08X %.08X \033[1m%s\033[0m" % (szaddr, 
 											mem0, 
@@ -1148,10 +1161,10 @@ def     dw(debugger, command, result, dict):
                 return;
 
         color(BLUE);
-        if arch == "i386":
+        if is_i386():
                 output("[0x0000:0x%.08X]" % value);
                 output("--------------------------------------------");
-        elif arch == "x86_64":
+        elif is_x64():
                 output("[0x0000:0x%.016lX]" % value);
                 output("--------------------------------------------");
         color_bold();
@@ -1161,9 +1174,9 @@ def     dw(debugger, command, result, dict):
         index = 0;
         while index < 0x100:
                 data = struct.unpack("HHHHHHHH", membuff[index:index+0x10]);
-                if arch == "i386":
+                if is_i386():
                         szaddr = "0x%.08X" % value;
-                elif arch == "x86_64":
+                elif is_x64():
                         szaddr = "0x%.016lX" % value;
                 output("\033[1m%s :\033[0m %.04X %.04X %.04X %.04X %.04X %.04X %.04X %.04X \033[1m%s\033[0m" % (szaddr, 
 			data[0],
