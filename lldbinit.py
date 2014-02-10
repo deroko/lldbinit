@@ -823,6 +823,7 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 	output("Stop reason : " + str(lldb.debugger.GetSelectedTarget().process.selected_thread.GetStopDescription(100)));
 	
         result.PutCString("".join(GlobalListOutput));
+	result.SetStatus(lldb.eReturnStatusSuccessFinishResult);
 
 def	LoadBreakPoints(debugger, command, result, dict):
 	global GlobalOutputList;
@@ -891,6 +892,7 @@ def	DumpInstructions(debugger, command, result, dict):
 		output("Error getting instructions for : " + command);
 	
 	result.PutCString("".join(GlobalListOutput));
+	result.SetStatus(lldb.eReturnStatusSuccessFinishResult);
 
 '''
 	Implements stepover instruction. Unfortunatelly here is no internal breakpoint exposed to Python
@@ -1036,6 +1038,7 @@ def     dd(debugger, command, result, dict):
 	#last element of the list has all data output...
 	#so we remove last \n
 	result.PutCString("".join(GlobalListOutput));
+	result.SetStatus(lldb.eReturnStatusSuccessFinishResult);
 
 def     dq(debugger, command, result, dict):
         global GlobalListOutput;
@@ -1088,6 +1091,7 @@ def     dq(debugger, command, result, dict):
 		value += 0x20;
 	color_reset();
 	result.PutCString("".join(GlobalListOutput));
+	result.SetStatus(lldb.eReturnStatusSuccessFinishResult);
 
 def     ddword(debugger, command, result, dict):
         global GlobalListOutput;
@@ -1145,6 +1149,7 @@ def     ddword(debugger, command, result, dict):
                 value += 0x10;
         color_reset();
         result.PutCString("".join(GlobalListOutput));	
+	result.SetStatus(lldb.eReturnStatusSuccessFinishResult);
 
 def     dw(debugger, command, result, dict):
         global GlobalListOutput;
@@ -1206,3 +1211,5 @@ def     dw(debugger, command, result, dict):
                 value += 0x10;
         color_reset();
         result.PutCString("".join(GlobalListOutput));
+	result.SetStatus(lldb.eReturnStatusSuccessFinishResult);
+
