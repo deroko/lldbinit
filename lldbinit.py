@@ -196,7 +196,6 @@ def	get_arch():
 def 	get_frame():
         return lldb.debugger.GetSelectedTarget().process.selected_thread.GetSelectedFrame(); 
 
-#handle all iXXX (i386/i686) cases
 def	is_i386():
 	arch = get_arch();
 	if arch[0:1] == "i":
@@ -796,7 +795,20 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 	#debugger.HandleCommand("disassemble --start-address=" + pc + " --count=8");
         res = lldb.SBCommandReturnObject();
         lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=" + pc + " --count=8", res)
-        output(res.GetOutput());
+       	 
+	data = res.GetOutput();
+	#split lines... and mark currently executed code...
+	data = data.split("\n");
+	for x in data:
+		if x[0:2] == "->":
+			color(BLUE);
+			color_bold();
+			output(x);
+			color_reset();
+		else:
+			output(x);
+		output("\n");
+	#output(res.GetOutput());
         color(COLOR_SEPARATOR);
         if is_i386():
                 output("---------------------------------------------------------------------------------------");
@@ -841,7 +853,7 @@ def	LoadBreakPoints(debugger, command, result, dict):
 '''
 def	si(debugger, command, result, dict):
 	res = lldb.SBCommandReturnObject();
-        lldb.debugger.GetCommandInterpreter().HandleCommand("thread step-in", res);
+        lldb.debugger.GetCommandInterpreter().HandleCommand("thread step-inst", res);
 	return;	
 
 def	c(debugger, command, result, dict):
