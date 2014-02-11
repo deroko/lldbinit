@@ -116,7 +116,7 @@ COLOR_REGVAL = WHITE
 COLOR_REGVAL_MODIFIED  = RED
 COLOR_SEPARATOR = BLUE
 COLOR_CPUFLAGS = RED
-
+COLOR_HIGHLIGHT_LINE = CYAN
 #stop-disassembly-count
 #stop-disassembly-display
 #frame-format
@@ -233,7 +233,7 @@ def	color(x):
 		out_col = "\033[36m";
 	elif x == WHITE:
 		out_col = "\033[37m";
-        output(out_col);
+	output(out_col);
 
 def	output(x):
         #sys.stdout.flush();
@@ -801,7 +801,7 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 	data = data.split("\n");
 	for x in data:
 		if x[0:2] == "->":
-			color(BLUE);
+			color(COLOR_HIGHLIGHT_LINE);
 			color_bold();
 			output(x);
 			color_reset();
