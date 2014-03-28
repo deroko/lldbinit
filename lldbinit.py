@@ -40,6 +40,7 @@ Commands which are implemented:
 	ddword	    - dump data as dword 
 	dq	    - dump data as qword
 	dw	    - dump data as word
+	iphone	    - connect to debugserver running on iPhone 
 	
 	hook-stop can be added only when target exists, before it's not possible (maybe in later versions
 	of lldb it is or will be possible but...). Trick to get arround this is to create thread which will
@@ -47,8 +48,7 @@ Commands which are implemented:
 	as I don't know if this is thread safe, however in my testing (and using it) it worked quite well so
 	I keep using it instead of adding extra command "init" or such when target is created...
 
-	Currently registers dump are done for i386/x86_64 . ARM will be added when I find need for it, atm it's
-	not required... (or when somebody else adds it)...
+	Currently registers dump are done for i386/x86_64/arm 
 
 '''
 
@@ -101,6 +101,24 @@ old_r14 = 0;
 old_r15 = 0;
 old_rflags = 0;
 old_rip = 0;
+
+old_arm_r0	= 0;
+old_arm_r1	= 0;
+old_arm_r2	= 0;
+old_arm_r3	= 0;
+old_arm_r4	= 0;
+old_arm_r5	= 0;
+old_arm_r6	= 0;
+old_arm_r7	= 0;
+old_arm_r8	= 0;
+old_arm_r9	= 0;
+old_arm_r10	= 0;
+old_arm_r11	= 0;
+old_arm_r12	= 0;
+old_arm_sp	= 0;
+old_arm_lr	= 0;
+old_arm_pc	= 0;
+old_arm_cpsr	= 0;
 
 BLACK = 0
 RED = 1
@@ -169,6 +187,7 @@ def	__lldb_init_module(debugger, internal_dict):
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.dq dq", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.ddword ddword", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.dw dw", res);
+	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.IphoneConnect iphone", res);
 	#lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.init init", res);
 	#lldb.debugger.GetCommandInterpreter().HandleCommand("target stop-hook add -o \"HandleHookStopOnTarget\"", res)                          
        	#if res.Succeeded() == True:
@@ -205,6 +224,12 @@ def	is_i386():
 def	is_x64():
 	arch = get_arch();
 	if arch == "x86_64":
+		return True;
+	return False;
+
+def	is_arm():
+	arch = get_arch();
+	if "arm" in arch:
 		return True;
 	return False;
 
@@ -735,13 +760,201 @@ def	reg32():
 	output("\n");
 	
 
+def regarm():
+	global	old_arm_r0;      
+	global	old_arm_r1;      
+	global	old_arm_r2;      
+	global	old_arm_r3;      
+	global	old_arm_r4;      
+	global	old_arm_r5;      
+	global	old_arm_r6;      
+	global	old_arm_r7;      
+	global	old_arm_r8;      
+	global	old_arm_r9;      
+	global	old_arm_r10;     
+	global	old_arm_r11;     
+	global	old_arm_r12;     
+	global	old_arm_sp;      
+	global	old_arm_lr;      
+	global	old_arm_pc;      
+	global	old_arm_cpsr;    
+
+	color(COLOR_REGNAME);
+        output("  R0:  ");
+        r0 = int(get_register("r0"), 16);
+        if r0 == old_arm_r0:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (r0));
+        old_arm_r0 = r0;
+
+	color(COLOR_REGNAME);
+        output("  R1:  ");
+        r1 = int(get_register("r1"), 16);
+        if r1 == old_arm_r1:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (r1));
+        old_arm_r1 = r1;
+
+	color(COLOR_REGNAME);
+        output("  R2:  ");
+        r2 = int(get_register("r2"), 16);
+        if r2 == old_arm_r2:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (r2));
+        old_arm_r2 = r2;
+
+	color(COLOR_REGNAME);
+        output("  R3:  ");
+        r3 = int(get_register("r3"), 16);
+        if r3 == old_arm_r3:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (r3));
+        old_arm_r3 = r3;
+
+	output("\n");
+	
+
+        color(COLOR_REGNAME);
+        output("  R4:  ");
+        r4 = int(get_register("r4"), 16);
+        if r4 == old_arm_r4:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (r4));
+        old_arm_r4 = r4;
+
+        color(COLOR_REGNAME);
+        output("  R5:  ");
+        r5 = int(get_register("r5"), 16);
+        if r5 == old_arm_r5:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (r5));
+        old_arm_r5 = r5;
+
+        color(COLOR_REGNAME);
+        output("  R6:  ");
+        r6 = int(get_register("r6"), 16);
+        if r6 == old_arm_r6:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (r6));
+        old_arm_r6 = r6;
+
+        color(COLOR_REGNAME);
+        output("  R7:  ");
+        r7 = int(get_register("r7"), 16);
+        if r7 == old_arm_r7:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (r7));
+        old_arm_r7 = r7;
+
+	output("\n");
+
+        color(COLOR_REGNAME);
+        output("  R8:  ");
+        r8 = int(get_register("r8"), 16);
+        if r8 == old_arm_r8:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (r8));
+        old_arm_r8 = r8;
+
+        color(COLOR_REGNAME);
+        output("  R9:  ");
+        r9 = int(get_register("r9"), 16);
+        if r9 == old_arm_r9:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (r9));
+        old_arm_r9 = r9;
+
+        color(COLOR_REGNAME);
+        output("  R10: ");
+        r10 = int(get_register("r10"), 16);
+        if r10 == old_arm_r10:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (r10));
+        old_arm_r10 = r10;
+
+        color(COLOR_REGNAME);
+        output("  R11: ");
+        r11 = int(get_register("r11"), 16);
+        if r11 == old_arm_r11:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (r11));
+        old_arm_r11 = r11;
+	
+	output("\n");
+
+        color(COLOR_REGNAME);
+        output("  R12: ");
+        r12 = int(get_register("r12"), 16);
+        if r12 == old_arm_r12:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (r12));
+        old_arm_r12 = r12;
+
+        color(COLOR_REGNAME);
+        output("  SP:  ");
+        sp = int(get_register("sp"), 16);
+        if sp == old_arm_sp:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (sp));
+        old_arm_sp = sp;
+
+        color(COLOR_REGNAME);
+        output("  LR:  ");
+        lr = int(get_register("lr"), 16);
+        if lr == old_arm_lr:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (lr));
+        old_arm_lr = lr;
+
+        color(COLOR_REGNAME);
+        output("  PC:  ");
+        pc = int(get_register("pc"), 16);
+        if pc == old_arm_pc:
+                color(COLOR_REGVAL);
+        else:
+                color(COLOR_REGVAL_MODIFIED);
+        output("0x%.08X" % (pc));
+        old_arm_pc = pc;
+	output("\n");
+
 def print_registers():
 	arch = get_arch();
 	if is_i386(): 
 		reg32();
 	elif is_x64():
 		reg64();
-
+	elif is_arm():
+		regarm();
 def get_GPRs():
     """Returns the general purpose registers of the frame as an SBValue.
 
@@ -761,14 +974,14 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 	GlobalListOutput = [];
 	
 	arch = get_arch();
-	if not is_i386() and not is_x64():
+	if not is_i386() and not is_x64() and not is_arm():
 		#this is for ARM probably in the future... when I will need it...
 		print("Unknown architecture : " + arch);
 		return;
 	
 	output("\n");
 	color(COLOR_SEPARATOR);
-	if is_i386():
+	if is_i386() or is_arm():
         	output("---------------------------------------------------------------------------------");
 	elif is_x64():
 	        output("-----------------------------------------------------------------------------------------------------------------------");
@@ -779,7 +992,7 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 	print_registers();
 	
 	color(COLOR_SEPARATOR);
-	if is_i386():
+	if is_i386() or is_arm():
         	output("---------------------------------------------------------------------------------");
 	elif is_x64():
 	        output("-----------------------------------------------------------------------------------------------------------------------");
@@ -791,7 +1004,8 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
         	pc = get_register("eip");
 	elif is_x64():
 	        pc = get_register("rip");
-	        
+	elif is_arm():
+		pc = get_register("pc");        
 	#debugger.HandleCommand("disassemble --start-address=" + pc + " --count=8");
         res = lldb.SBCommandReturnObject();
         lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=" + pc + " --count=8", res)
@@ -810,7 +1024,7 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 		output("\n");
 	#output(res.GetOutput());
         color(COLOR_SEPARATOR);
-        if is_i386():
+        if is_i386() or is_arm():
                 output("---------------------------------------------------------------------------------------");
         elif is_x64():
                 output("-----------------------------------------------------------------------------------------------------------------------------");
@@ -922,7 +1136,9 @@ def	stepo(debugger, command, result, dict):
                 pc = lldb.SBAddress(int(get_register("eip"), 16), target);
         elif is_x64():
                 pc = lldb.SBAddress(int(get_register("rip"), 16), target);
-                
+        elif is_arm():
+		pc = lldb.SBAddress(int(get_register("pc"), 16), target);
+        
         inst = lldb.SBTarget.ReadInstructions(target, pc, 2 , "intel");
         
         pc_inst = inst[0];
@@ -933,7 +1149,16 @@ def	stepo(debugger, command, result, dict):
                 pc = int(get_register("eip"), 16) + inst[0].GetByteSize();
         elif is_x64():
                 pc = int(get_register("rip"), 16) + inst[0].GetByteSize();
-                
+        elif is_arm():
+		pc = int(get_register("pc"), 16) + inst[0].GetByteSize();
+	
+	if is_arm():
+		if "blx" in pc_inst or "bl" in pc_inst or "bx" in pc_inst:
+			breakpoint = target.BreakpointCreateByAddress(pc);
+			breakpoint.SetOneShot(True);
+			debugger.HandleCommand("c");
+			return;
+        
         if "call" in pc_inst or "movs" in pc_inst or "stos" in pc_inst or "loop" in pc_inst or "cmps" in pc_inst:
                 
                 breakpoint = target.BreakpointCreateByAddress(pc);
@@ -949,7 +1174,7 @@ def hexdump(addr, chars, sep, width ):
 	        chars = chars[width:]
 	        line = line.ljust( width, '\000' )
 	        arch = get_arch();
-		if is_i386():
+		if is_i386() or is_arm():
 			szaddr = "0x%.08X" % addr;
 	        elif is_x64():
 			szaddr = "0x%.016lX" % addr;
@@ -991,7 +1216,7 @@ def     dd(debugger, command, result, dict):
                 return;
                 
         color(BLUE);
-        if is_i386():
+        if is_i386() or is_arm():
                 output("[0x0000:0x%.08X]" % value);
                 output("------------------------------------------------------");
         elif is_x64():
@@ -1005,9 +1230,9 @@ def     dd(debugger, command, result, dict):
         index = 0;
         while index < 0x100:
                 data = struct.unpack("B"*16, membuff[index:index+0x10]);
-                if is_i386:
+                if is_i386() or is_arm():
                         szaddr = "0x%.08X" % value;
-                elif is_x64:
+                elif is_x64():
                         szaddr = "0x%.016lX" % value;
 		fmtnice = "%.02X %.02X %.02X %.02X %.02X %.02X %.02X %.02X"
 		fmtnice = fmtnice + " - " + fmtnice;
@@ -1067,7 +1292,7 @@ def     dq(debugger, command, result, dict):
                 return;
 
         color(BLUE);
-        if is_i386():
+        if is_i386() or is_arm():
                 output("[0x0000:0x%.08X]" % value);
                 output("-------------------------------------------------------");
         elif is_x64():
@@ -1080,7 +1305,7 @@ def     dq(debugger, command, result, dict):
 	index = 0;
 	while index < 0x100:
 		(mem0, mem1, mem2, mem3) = struct.unpack("QQQQ", membuff[index:index+0x20]);
-		if is_i386():
+		if is_i386() or is_arm():
 			szaddr = "0x%.08X" % value;
 		elif is_x64():
 			szaddr = "0x%.016lX" % value;
@@ -1120,7 +1345,7 @@ def     ddword(debugger, command, result, dict):
                 return;
 
         color(BLUE);
-        if is_i386():
+        if is_i386() or is_arm():
                 output("[0x0000:0x%.08X]" % value);
                 output("----------------------------------------");
         elif is_x64():
@@ -1133,7 +1358,7 @@ def     ddword(debugger, command, result, dict):
         index = 0;
         while index < 0x100:
                 (mem0, mem1, mem2, mem3) = struct.unpack("IIII", membuff[index:index+0x10]);
-                if is_i386():
+                if is_i386() or is_arm():
                         szaddr = "0x%.08X" % value;
                 elif is_x64():
                         szaddr = "0x%.016lX" % value;
@@ -1178,7 +1403,7 @@ def     dw(debugger, command, result, dict):
                 return;
 
         color(BLUE);
-        if is_i386():
+        if is_i386() or is_arm():
                 output("[0x0000:0x%.08X]" % value);
                 output("--------------------------------------------");
         elif is_x64():
@@ -1191,7 +1416,7 @@ def     dw(debugger, command, result, dict):
         index = 0;
         while index < 0x100:
                 data = struct.unpack("HHHHHHHH", membuff[index:index+0x10]);
-                if is_i386():
+                if is_i386() or is_arm():
                         szaddr = "0x%.08X" % value;
                 elif is_x64():
                         szaddr = "0x%.016lX" % value;
@@ -1213,3 +1438,33 @@ def     dw(debugger, command, result, dict):
         result.PutCString("".join(GlobalListOutput));
 	result.SetStatus(lldb.eReturnStatusSuccessFinishResult);
 
+def IphoneConnect(debugger, command, result, dict):	
+	global GlobalListOutput;
+	GlobalListOutput = [];
+		
+	if len(command) == 0 or ":" not in command:
+		output("Connect to remote iPhone debug server");
+		output("\n");
+		output("iphone <ipaddress:port>");
+		output("\n");
+		output("iphone 192.168.0.2:5555");
+		result.PutCString("".join(GlobalListOutput));
+		result.SetStatus(lldb.eReturnStatusSuccessFinishResult);
+		return;
+
+	res = lldb.SBCommandReturnObject();
+        lldb.debugger.GetCommandInterpreter().HandleCommand("platform select remote-ios", res);
+	if res.Succeeded() == True:
+                output(res.GetOutput());
+	else:
+		output("Error running platform select remote-ios");
+		result.PutCString("".join(GlobalListOutput));
+		result.SetStatus(lldb.eReturnStatusSuccessFinishResult);
+		return;
+	lldb.debugger.GetCommandInterpreter().HandleCommand("process connect connect://" + command, res);
+	if res.Succeeded() == True:
+		output("Connected to iphone at : " + command);
+	else:
+		output(res.GetOutput());
+	result.PutCString("".join(GlobalListOutput));
+	result.SetStatus(lldb.eReturnStatusSuccessFinishResult);	
