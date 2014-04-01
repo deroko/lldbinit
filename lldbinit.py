@@ -53,11 +53,6 @@ Commands which are implemented:
 
 	TODO:
 		Add code to highlight only changed flags (both x86/x86_64 and ARM)
-
-	For supported ARM types for iPhone check here:
-		source/Plugins/Platform/MacOSX/PlatformDarwin.cpp
-		PlatformDarwin::ARMGetSupportedArchitectureAtIndex  <-- maybe wrong, but you have
-									idea what they support
 '''
 
 if __name__ == "__main__":
@@ -1259,9 +1254,15 @@ def	stepo(debugger, command, result, dict):
 	stuff = res.GetOutput();	
 	stuff = stuff.splitlines(True);
         #print(stuff);
-	while stuff[0][0:2] != "->":
-		stuff = stuff[1:];
-
+	stuff_new = [];
+	for x in stuff:
+		if x[0:3] == "-> ":
+			stuff_new.append(x);
+		if x[0:3] == "   ":
+			stuff_new.append(x);
+	#while stuff[0][0:2] != "->":
+	#	stuff = stuff[1:];
+	stuff = stuff_new;
 	#Split to 2 lines separator :
 	#and than separate with " " space to get mnemonic
 	#0xxxxxxxxx:  ldr    r3, [pc, #112]            ; _dyld_start + 132
