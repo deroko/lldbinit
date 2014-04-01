@@ -50,6 +50,9 @@ Commands which are implemented:
 
 	Currently registers dump are done for i386/x86_64/arm 
 
+
+	TODO:
+		Add code to highlight only changed flags (both x86/x86_64 and ARM)
 '''
 
 if __name__ == "__main__":
@@ -140,6 +143,8 @@ COLOR_HIGHLIGHT_LINE = CYAN
 #frame-format
 #thread-format
 #prompt	
+
+arm_type = "thumbv7-apple-ios";
 
 GlobalListOutput = [];
 
@@ -759,7 +764,58 @@ def	reg32():
 	old_ss = ss;
 	output("\n");
 	
+def dump_cpsr(cpsr):
+	if (cpsr >> 31) & 1:
+		output("N ");
+	else:
+		output("n ");
 
+	if (cpsr >> 30) & 1:
+		output("Z ");
+	else:
+		output("z ");
+
+	if (cpsr >> 29) & 1:
+		output("C ");
+	else:
+		output("c ");
+	
+	if (cpsr >> 28) & 1:
+		output("V ");
+	else:
+		output("v ");
+	
+	if (cpsr >> 27) & 1:
+		output("Q ");
+	else:
+		output("q ");
+	
+	if (cpsr >> 24) & 1:
+		output("J ");
+	else:
+		output("j ");
+	
+	if (cpsr >> 9) & 1:
+		output("E ");
+	else:
+		output("e ");
+	if (cpsr >> 8) & 1:
+		output("A ");
+	else:
+		output("a ");
+	if (cpsr >> 7) & 1:
+		output("I ");
+	else:
+		output("i ");
+	if (cpsr >> 6) & 1:
+		output("F ");
+	else:
+		output("f ");
+	if (cpsr >> 5) & 1:
+		output("T");
+	else:
+		output("t");
+		
 def regarm():
 	global	old_arm_r0;      
 	global	old_arm_r1;      
@@ -818,6 +874,14 @@ def regarm():
                 color(COLOR_REGVAL_MODIFIED);
         output("0x%.08X" % (r3));
         old_arm_r3 = r3;
+	
+	output(" ");
+	color_bold();
+        color_underline();
+        color(COLOR_CPUFLAGS);
+	cpsr = int(get_register("cpsr"), 16);
+	dump_cpsr(cpsr);
+	color_reset();
 
 	output("\n");
 	
@@ -970,6 +1034,7 @@ def get_GPRs():
 
 def	HandleHookStopOnTarget(debugger, command, result, dict):
 	global GlobalListOutput;
+	global arm_type;
 	
 	GlobalListOutput = [];
 	
@@ -1008,8 +1073,17 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 		pc = get_register("pc");        
 	#debugger.HandleCommand("disassemble --start-address=" + pc + " --count=8");
         res = lldb.SBCommandReturnObject();
-        lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=" + pc + " --count=8", res)
-       	 
+        if is_arm():
+		cpsr = int(get_register("cpsr"), 16); 
+		t = (cpsr >> 5) & 1;
+		if t:
+			#it's thumb
+			arm_type = "thumbv7-apple-ios"; 
+		else:
+			arm_type = "armv7-apple-ios";
+		lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble -A " + arm_type + " --start-address=" + pc + " --count=8", res)
+       	else:
+		lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=" + pc + " --count=8", res);
 	data = res.GetOutput();
 	#split lines... and mark currently executed code...
 	data = data.split("\n");
@@ -1089,16 +1163,34 @@ def	r(debugger, command, result, dict):
 '''
 def	DumpInstructions(debugger, command, result, dict):
 	global GlobalListOutput;
+	global arm_type;
 	GlobalListOutput = [];
+	
+	if is_arm():
+		cpsr = int(get_register("cpsr"), 16);
+                t = (cpsr >> 5) & 1;
+                if t:
+                        #it's thumb
+                        arm_type = "thumbv7-apple-ios";
+                else:
+                        arm_type = "armv7-apple-ios";
 
 	res = lldb.SBCommandReturnObject();
 	cmd = command.split();
 	if len(cmd) == 0 or len(cmd) > 2:
-		lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=$pc --count=8", res);
+		if is_arm():
+			lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble -A " +arm_type + " --start-address=$pc --count=8", res);
+		else:
+			lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=$pc --count=8", res);
 	elif len(cmd) == 1:
-		lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=" + cmd[0] + " --count=8", res);
+		if is_arm():
+			lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble -A "+arm_type+" --start-address=" + cmd[0] + " --count=8", res);
+		else:
+			lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=" + cmd[0] + " --count=8", res);
 	else:
-		lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=" + cmd[0] + " --count="+cmd[1], res);
+		if is_arm():
+			lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble -A "+arm_type+" --start-address=" + cmd[0] + " --count="+cmd[1], res);
+			lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=" + cmd[0] + " --count="+cmd[1], res);
        	
 	if res.Succeeded() == True:
  		output(res.GetOutput());
@@ -1126,42 +1218,91 @@ def	DumpInstructions(debugger, command, result, dict):
 '''
 def	stepo(debugger, command, result, dict):
         global GlobalListOutput; 
-        GlobalListOutput = [];
+        global arm_type;
+	GlobalListOutput = [];
         
         arch = get_arch();
         
         err = lldb.SBError();
         target = lldb.debugger.GetSelectedTarget();
-        if is_i386():
-                pc = lldb.SBAddress(int(get_register("eip"), 16), target);
-        elif is_x64():
-                pc = lldb.SBAddress(int(get_register("rip"), 16), target);
-        elif is_arm():
-		pc = lldb.SBAddress(int(get_register("pc"), 16), target);
+        #if is_i386():
+        #        pc = lldb.SBAddress(int(get_register("eip"), 16), target);
+        #elif is_x64():
+        #        pc = lldb.SBAddress(int(get_register("rip"), 16), target);
+        #elif is_arm():
+	#	pc = lldb.SBAddress(int(get_register("pc"), 16), target);
         
-        inst = lldb.SBTarget.ReadInstructions(target, pc, 2 , "intel");
+	if is_arm():
+                cpsr = int(get_register("cpsr"), 16);
+                t = (cpsr >> 5) & 1;
+                if t:
+                        #it's thumb
+                        arm_type = "thumbv7-apple-ios";
+                else:
+                        arm_type = "armv7-apple-ios";
+
+        res = lldb.SBCommandReturnObject();
+	if is_arm():
+        	lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble -A " +arm_type + " --start-address=$pc --count=2", res);
+	else:
+		lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=$pc --count=2", res);	
+	
+	if res.Succeeded() != True:
+		output("[X] Error in stepo... can't disassemble at pc");
+		return;
+	
+	stuff = res.GetOutput();	
+	stuff = stuff.splitlines(True);
+        #print(stuff);
+	while stuff[0][0:2] != "->":
+		stuff = stuff[1:];
+
+	#Split to 2 lines separator :
+	#and than separate with " " space to get mnemonic
+	#0xxxxxxxxx:  ldr    r3, [pc, #112]            ; _dyld_start + 132
+	#0xxxxxxxxx:  sub    r0, pc, #0x8
+	current_pc = stuff[0];
+	current_pc = current_pc[2:];
+	next_pc    = stuff[1];
+	current_pc = current_pc.split()[0];
+	next_pc	   = next_pc.split()[0];
+	current_pc = current_pc[:-1];
+	next_pc	   = next_pc[:-1];		
+	current_pc = int(current_pc, 16);
+	next_pc    = int(next_pc, 16);
+	
+	current_inst = stuff[0];
+	current_inst = current_inst[2:];
+	current_inst = current_inst.split(":")[1];
+	current_inst = current_inst.split()[0];
+	#print(current_inst);
+
+	#print(current_pc);
+	#print(next_pc);
+	pc_inst = current_inst;	
+	#inst = lldb.SBTarget.ReadInstructions(target, pc, 2 , "intel");
+       	 
+        #pc_inst = inst[0];
+        #pc_inst = str(pc_inst).split()[1];
         
-        pc_inst = inst[0];
-        pc_inst = str(pc_inst).split()[1];
-        
-        pc_inst = inst[0].GetMnemonic(target);
-        if is_i386():
-                pc = int(get_register("eip"), 16) + inst[0].GetByteSize();
-        elif is_x64():
-                pc = int(get_register("rip"), 16) + inst[0].GetByteSize();
-        elif is_arm():
-		pc = int(get_register("pc"), 16) + inst[0].GetByteSize();
+        #pc_inst = inst[0].GetMnemonic(target);
+        #if is_i386():
+        #        pc = int(get_register("eip"), 16) + inst[0].GetByteSize();
+        #elif is_x64():
+        #        pc = int(get_register("rip"), 16) + inst[0].GetByteSize();
+        #elif is_arm():
+	#	pc = int(get_register("pc"), 16) + inst[0].GetByteSize();
 	
 	if is_arm():
 		if "blx" in pc_inst or "bl" in pc_inst or "bx" in pc_inst:
-			breakpoint = target.BreakpointCreateByAddress(pc);
+			breakpoint = target.BreakpointCreateByAddress(next_pc);
 			breakpoint.SetOneShot(True);
 			debugger.HandleCommand("c");
 			return;
         
         if "call" in pc_inst or "movs" in pc_inst or "stos" in pc_inst or "loop" in pc_inst or "cmps" in pc_inst:
                 
-                breakpoint = target.BreakpointCreateByAddress(pc);
+                breakpoint = target.BreakpointCreateByAddress(next_pc);
                 breakpoint.SetOneShot(True);
                 debugger.HandleCommand("c");
         else:
