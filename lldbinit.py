@@ -53,6 +53,11 @@ Commands which are implemented:
 
 	TODO:
 		Add code to highlight only changed flags (both x86/x86_64 and ARM)
+
+	For supported ARM types for iPhone check here:
+		source/Plugins/Platform/MacOSX/PlatformDarwin.cpp
+		PlatformDarwin::ARMGetSupportedArchitectureAtIndex  <-- maybe wrong, but you have
+									idea what they support
 '''
 
 if __name__ == "__main__":
