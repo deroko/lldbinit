@@ -48,3 +48,6 @@ Commands which are implemented:
    I keep using it instead of adding extra command "init" or such when target is created...
    
    Currently registers dump are done for i386/x86_64/arm 
+
+   TODO:
+	Add code to highlight only changed flags (both x86/x86_64 and ARM)

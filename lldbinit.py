@@ -1255,13 +1255,13 @@ def	stepo(debugger, command, result, dict):
 	stuff = stuff.splitlines(True);
         #print(stuff);
 	stuff_new = [];
+	#remove empty lines and symbol names...
+	#so we get list with 2 instructions only...
 	for x in stuff:
 		if x[0:3] == "-> ":
 			stuff_new.append(x);
 		if x[0:3] == "   ":
 			stuff_new.append(x);
-	#while stuff[0][0:2] != "->":
-	#	stuff = stuff[1:];
 	stuff = stuff_new;
 	#Split to 2 lines separator :
 	#and than separate with " " space to get mnemonic
@@ -1281,10 +1281,7 @@ def	stepo(debugger, command, result, dict):
 	current_inst = current_inst[2:];
 	current_inst = current_inst.split(":")[1];
 	current_inst = current_inst.split()[0];
-	#print(current_inst);
 
-	#print(current_pc);
-	#print(next_pc);
 	pc_inst = current_inst;	
 	#inst = lldb.SBTarget.ReadInstructions(target, pc, 2 , "intel");
        	 
