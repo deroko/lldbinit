@@ -1303,7 +1303,7 @@ def	stepo(debugger, command, result, dict):
 	#	pc = int(get_register("pc"), 16) + inst[0].GetByteSize();
 	
 	if is_arm():
-		if "blx" in pc_inst or "bl" in pc_inst or "bx" in pc_inst:
+		if "blx" in pc_inst or "bl" in pc_inst:
 			breakpoint = target.BreakpointCreateByAddress(next_pc);
 			breakpoint.SetOneShot(True);
 			debugger.HandleCommand("c");
