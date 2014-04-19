@@ -53,12 +53,6 @@ Commands which are implemented:
 
 	TODO:
 		Add code to highlight only changed flags (both x86/x86_64 and ARM)
-
-
-	For supported ARM types for iPhone check here:
- -		source/Plugins/Platform/MacOSX/PlatformDarwin.cpp
- -		PlatformDarwin::ARMGetSupportedArchitectureAtIndex  <-- maybe wrong, but you have
- -									idea what they support
 '''
 
 if __name__ == "__main__":
@@ -1261,13 +1255,13 @@ def	stepo(debugger, command, result, dict):
 	stuff = stuff.splitlines(True);
         #print(stuff);
 	stuff_new = [];
-	#remove empty lines and symbol names...
-	#so we get list with 2 instructions only...
 	for x in stuff:
 		if x[0:3] == "-> ":
 			stuff_new.append(x);
 		if x[0:3] == "   ":
 			stuff_new.append(x);
+	#while stuff[0][0:2] != "->":
+	#	stuff = stuff[1:];
 	stuff = stuff_new;
 	#Split to 2 lines separator :
 	#and than separate with " " space to get mnemonic
@@ -1287,7 +1281,10 @@ def	stepo(debugger, command, result, dict):
 	current_inst = current_inst[2:];
 	current_inst = current_inst.split(":")[1];
 	current_inst = current_inst.split()[0];
+	#print(current_inst);
 
+	#print(current_pc);
+	#print(next_pc);
 	pc_inst = current_inst;	
 	#inst = lldb.SBTarget.ReadInstructions(target, pc, 2 , "intel");
        	 
@@ -1358,13 +1355,18 @@ def     dd(debugger, command, result, dict):
                 return;
         
         err = lldb.SBError();
-        target = lldb.debugger.GetSelectedTarget(); 
-        membuff = target.GetProcess().ReadMemory(value, 0x100, err);
-        if err.Success() == False:
-                output(str(err));
-                result.PutCString("".join(GlobalListOutput));
-                return;
-                
+        target = lldb.debugger.GetSelectedTarget();
+	size = 0x100; 
+       	while size != 0:
+                membuff = target.GetProcess().ReadMemory(value, size, err);
+                if err.Success() == False and size == 0:
+                        output(str(err));
+                        result.PutCString("".join(GlobalListOutput));
+                        return;
+                if err.Success() == True:
+                        break;
+                size = size - 1;
+        membuff = membuff + "\x00" * (0x100-size); 
         color(BLUE);
         if is_i386() or is_arm():
                 output("[0x0000:0x%.08X]" % value);
@@ -1435,8 +1437,18 @@ def     dq(debugger, command, result, dict):
 
         err = lldb.SBError();
         target = lldb.debugger.GetSelectedTarget();
-        membuff = target.GetProcess().ReadMemory(value, 0x100, err);
-        if err.Success() == False:
+        size = 0x100;
+	while size != 0:
+                membuff = target.GetProcess().ReadMemory(value, size, err);
+                if err.Success() == False and size == 0:
+                        output(str(err));
+                        result.PutCString("".join(GlobalListOutput));
+                        return;
+                if err.Success() == True:
+                        break;
+                size = size - 8;
+        membuff = membuff + "\x00" * (0x100-size);
+	if err.Success() == False:
                 output(str(err));
                 result.PutCString("".join(GlobalListOutput));
                 return;
@@ -1488,13 +1500,18 @@ def     ddword(debugger, command, result, dict):
 
         err = lldb.SBError();
         target = lldb.debugger.GetSelectedTarget();
-        membuff = target.GetProcess().ReadMemory(value, 0x100, err);
-        if err.Success() == False:
-                output(str(err));
-                result.PutCString("".join(GlobalListOutput));
-                return;
-
-        color(BLUE);
+        size = 0x100;
+	while size != 0:	
+		membuff = target.GetProcess().ReadMemory(value, size, err);
+        	if err.Success() == False and size == 0:
+                	output(str(err));
+                	result.PutCString("".join(GlobalListOutput));
+                	return;
+		if err.Success() == True:
+			break;
+		size = size - 4;
+	membuff = membuff + "\x00" * (0x100-size);
+	color(BLUE);
         if is_i386() or is_arm():
                 output("[0x0000:0x%.08X]" % value);
                 output("----------------------------------------");
@@ -1523,7 +1540,7 @@ def     ddword(debugger, command, result, dict):
                 index += 0x10;
                 value += 0x10;
         color_reset();
-        result.PutCString("".join(GlobalListOutput));	
+	result.PutCString("".join(GlobalListOutput));	
 	result.SetStatus(lldb.eReturnStatusSuccessFinishResult);
 
 def     dw(debugger, command, result, dict):
@@ -1546,11 +1563,17 @@ def     dw(debugger, command, result, dict):
 
         err = lldb.SBError();
         target = lldb.debugger.GetSelectedTarget();
-        membuff = target.GetProcess().ReadMemory(value, 0x100, err);
-        if err.Success() == False:
-                output(str(err));
-                result.PutCString("".join(GlobalListOutput));
-                return;
+        size = 0x100;
+	while size != 0:
+                membuff = target.GetProcess().ReadMemory(value, size, err);
+                if err.Success() == False and size == 0:
+                        output(str(err));
+                        result.PutCString("".join(GlobalListOutput));
+                        return;
+                if err.Success() == True:
+                        break;
+                size = size - 2;
+        membuff = membuff + "\x00" * (0x100-size);
 
         color(BLUE);
         if is_i386() or is_arm():
