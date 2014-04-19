@@ -49,7 +49,11 @@ Commands which are implemented:
 	I keep using it instead of adding extra command "init" or such when target is created...
 
 	Currently registers dump are done for i386/x86_64/arm 
-
+	
+	For supported ARM types for iPhone check here:
+		source/Plugins/Platform/MacOSX/PlatformDarwin.cpp
+		PlatformDarwin::ARMGetSupportedArchitectureAtIndex  <-- maybe wrong, but you have
+									idea what they support
 
 	TODO:
 		Add code to highlight only changed flags (both x86/x86_64 and ARM)
