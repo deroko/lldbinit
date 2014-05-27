@@ -57,6 +57,9 @@ Commands which are implemented:
 
 	TODO:
 		Add code to highlight only changed flags (both x86/x86_64 and ARM)
+	UPDATE:
+		lldbinit.py should work now with latest lldb from svn. Some of the commands
+		must execute in Async way, which is added now in several places.
 '''
 
 if __name__ == "__main__":
@@ -154,6 +157,9 @@ GlobalListOutput = [];
 
 hook_stop_added = 0;
 
+thread_format = "";
+frame_format  = "";
+
 def	wait_for_hook_stop():
 	while True:
 		#print("Waiting...");
@@ -181,12 +187,32 @@ def	__lldb_init_module(debugger, internal_dict):
 		if var == "0":
 			return;	
 	res = lldb.SBCommandReturnObject();
-        lldb.debugger.GetCommandInterpreter().HandleCommand("settings set target.x86-disassembly-flavor intel", res);
+        
+	#get thread-format
+	#get frame-format
+	global	thread_format;
+	global	frame_format;
+
+	#lldb.debugger.GetCommandInterpreter().HandleCommand("settings show thread-format", res);
+	#if res.Succeeded():
+	#	thread_format = res.GetOutput();	
+	#lldb.debugger.GetCommandInterpreter().HandleCommand("settings show frame-format", res);
+	#if res.Succeeded():
+	#	frame_format  = res.GetOutput();
+	#lldb.debugger.GetCommandInterpreter().HandleCommand("settings set thread-format \"\"", res);
+        #lldb.debugger.GetCommandInterpreter().HandleCommand("settings set frame-format \"\"", res);
+
+	thread_format = lldb.debugger.GetInternalVariableValue("thread-format", lldb.debugger.GetInstanceName()).GetStringAtIndex(0);
+	frame_format  = lldb.debugger.GetInternalVariableValue("frame-format",  lldb.debugger.GetInstanceName()).GetStringAtIndex(0);
+	lldb.debugger.SetInternalVariable("thread-format", "", lldb.debugger.GetInstanceName());
+	lldb.debugger.SetInternalVariable("frame-format" , "", lldb.debugger.GetInstanceName());
+
+	lldb.debugger.GetCommandInterpreter().HandleCommand("settings set target.x86-disassembly-flavor intel", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.stepo stepo", res);                               
         lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.HandleHookStopOnTarget HandleHookStopOnTarget", res);   
         lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.dd dd", res);                                           
         lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.si si", res);
-	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.c  c", res);
+	#lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.c  c", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.r  r", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.r  run", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.HandleHookStopOnTarget ctx", res);
@@ -198,7 +224,9 @@ def	__lldb_init_module(debugger, internal_dict):
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.dw dw", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.IphoneConnect iphone", res);
 	#lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.init init", res);
-	#lldb.debugger.GetCommandInterpreter().HandleCommand("target stop-hook add -o \"HandleHookStopOnTarget\"", res)                          
+	#lldb.debugger.GetCommandInterpreter().HandleCommand("target stop-hook add -o \"HandleHookStopOnTarget\"", res)
+	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.back_trace bt", res);
+	                       
        	#if res.Succeeded() == True:
 	#	hook_stop_added = 1;
 	#else:
@@ -212,7 +240,7 @@ def	__lldb_init_module(debugger, internal_dict):
 	'''
 	thread.start_new_thread(wait_for_hook_stop, ());
 
-	lldb.debugger.GetCommandInterpreter().HandleCommand("settings set prompt \"\033[31m(lldb) \033[0m\"", res);                             
+	lldb.debugger.GetCommandInterpreter().HandleCommand("settings set prompt \"\r\033[31m(lldb) \033[0m\"", res);                             
         #lldb.debugger.GetCommandInterpreter().HandleCommand("settings set frame-format \"\n\"", res);                                           
         #lldb.debugger.GetCommandInterpreter().HandleCommand("settings set thread-format \"\"", res);                                            
         lldb.debugger.GetCommandInterpreter().HandleCommand("settings set stop-disassembly-count 0", res);                                      
@@ -1040,6 +1068,7 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 	global GlobalListOutput;
 	global arm_type;
 	
+	debugger.SetAsync(False);	
 	GlobalListOutput = [];
 	
 	arch = get_arch();
@@ -1114,8 +1143,9 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 	#output("\n");
 	output("Stop reason : " + str(lldb.debugger.GetSelectedTarget().process.selected_thread.GetStopDescription(100)));
 	
-        result.PutCString("".join(GlobalListOutput));
-	result.SetStatus(lldb.eReturnStatusSuccessFinishResult);
+	print("".join(GlobalListOutput));
+
+	result.SetStatus(lldb.eReturnStatusSuccessFinishNoResult);
 
 def	LoadBreakPoints(debugger, command, result, dict):
 	global GlobalOutputList;
@@ -1145,15 +1175,18 @@ def	LoadBreakPoints(debugger, command, result, dict):
 	Same goes for c and r (continue and run)
 '''
 def	si(debugger, command, result, dict):
+	debugger.SetAsync(True);
 	res = lldb.SBCommandReturnObject();
         lldb.debugger.GetCommandInterpreter().HandleCommand("thread step-inst", res);
 	return;	
 
 def	c(debugger, command, result, dict):
+	debugger.SetAsync(True);
 	res = lldb.SBCommandReturnObject();
 	lldb.debugger.GetCommandInterpreter().HandleCommand("process continue", res);
 
 def	r(debugger, command, result, dict):
+	debugger.SetAsync(True);
 	res = lldb.SBCommandReturnObject();
 	if command[0:3] == "-c/":
                 index = command.find("--");
@@ -1161,6 +1194,31 @@ def	r(debugger, command, result, dict):
 	#strip -c/bin/sh or -c/bin/bash -- when arguments are passed to cmd line...
 	lldb.debugger.GetCommandInterpreter().HandleCommand("process launch -- " + command, res);
 
+def	back_trace(debugger, command ,result, dict):
+	global	thread_format;
+	global	frame_format;
+	global  GlobalOutputList;
+        GlobalOutputList = [];
+
+	debugger.SetAsync(True);
+	res = lldb.SBCommandReturnObject();
+	
+	debugger.SetInternalVariable("thread-format", thread_format, debugger.GetInstanceName());
+	debugger.SetInternalVariable("frame-format" , frame_format , debugger.GetInstanceName());
+
+	#thread_format = lldb.debugger.GetInternalVariableValue("thread-format", lldb.debugger.GetInstanceName());
+
+	lldb.debugger.GetCommandInterpreter().HandleCommand("thread backtrace", res);
+	if res.Succeeded() == True:
+		output(res.GetOutput());
+		pass;
+	else:
+		print("thread backtrace failed...");
+	debugger.SetInternalVariable("thread-format", "", debugger.GetInstanceName());
+	debugger.SetInternalVariable("frame-format" , "", debugger.GetInstanceName());	
+
+	
+	print("".join(GlobalListOutput));
 '''
 	Handles 'u' command which displays instructions. Also handles output of
 	'disassemble' command ...
@@ -1224,17 +1282,11 @@ def	stepo(debugger, command, result, dict):
         global GlobalListOutput; 
         global arm_type;
 	GlobalListOutput = [];
-        
+       	debugger.SetAsync(True); 
         arch = get_arch();
         
         err = lldb.SBError();
         target = lldb.debugger.GetSelectedTarget();
-        #if is_i386():
-        #        pc = lldb.SBAddress(int(get_register("eip"), 16), target);
-        #elif is_x64():
-        #        pc = lldb.SBAddress(int(get_register("rip"), 16), target);
-        #elif is_arm():
-	#	pc = lldb.SBAddress(int(get_register("pc"), 16), target);
         
 	if is_arm():
                 cpsr = int(get_register("cpsr"), 16);
@@ -1285,31 +1337,18 @@ def	stepo(debugger, command, result, dict):
 	current_inst = current_inst[2:];
 	current_inst = current_inst.split(":")[1];
 	current_inst = current_inst.split()[0];
-	#print(current_inst);
 
-	#print(current_pc);
-	#print(next_pc);
 	pc_inst = current_inst;	
-	#inst = lldb.SBTarget.ReadInstructions(target, pc, 2 , "intel");
        	 
-        #pc_inst = inst[0];
-        #pc_inst = str(pc_inst).split()[1];
-        
-        #pc_inst = inst[0].GetMnemonic(target);
-        #if is_i386():
-        #        pc = int(get_register("eip"), 16) + inst[0].GetByteSize();
-        #elif is_x64():
-        #        pc = int(get_register("rip"), 16) + inst[0].GetByteSize();
-        #elif is_arm():
-	#	pc = int(get_register("pc"), 16) + inst[0].GetByteSize();
-	
 	if is_arm():
 		if "blx" in pc_inst or "bl" in pc_inst:
 			breakpoint = target.BreakpointCreateByAddress(next_pc);
 			breakpoint.SetOneShot(True);
 			debugger.HandleCommand("c");
 			return;
-        
+        	else:
+			debugger.HandleCommand("si");
+			return;
         if "call" in pc_inst or "movs" in pc_inst or "stos" in pc_inst or "loop" in pc_inst or "cmps" in pc_inst:
                 
                 breakpoint = target.BreakpointCreateByAddress(next_pc);
