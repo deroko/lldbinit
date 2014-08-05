@@ -1065,6 +1065,10 @@ def get_GPRs():
     return get_registers("general purpose")
 
 def	HandleHookStopOnTarget(debugger, command, result, dict):
+	# Don't display anything if we're inside Xcode
+	if os.getenv('PATH').startswith('/Applications/Xcode.app'):
+		return
+	
 	global GlobalListOutput;
 	global arm_type;
 	
