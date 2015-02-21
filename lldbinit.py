@@ -6,42 +6,36 @@
 	in $HOME/.lldbinit add:
 	command script import lldbinit
 
-	Apple's default lldb comes with annoying disassembly eg:
-	-> 0x1d70:  push   EBP
-           0x1d71:  mov    EBP, ESP
-           0x1d73:  push   EDI
-           0x1d74:  push   ESI
-           0x1d75:  sub    ESP, 80
-
-	with lldb from lldb svn:
-
-	-> 0x1d70:  push   ebp
-           0x1d71:  mov    ebp, esp
-           0x1d73:  push   edi
-           0x1d74:  push   esi
-           0x1d75:  sub    esp, 0x50
-
-	Somewhere nicer, to compile lldb from svn we need to do:
+	If you want latest lldb, to compile it from svn we need to do:
 	svn co http://llvm.org/svn/llvm-project/lldb/trunk lldb
 	xcodebuild -configuration Release
-
-	From latest update of lldb there is change in handling IO, so to use
-	this script and be compatible with Apple's lldb you need to checkout
-	revision r200253 and you can do that by typing:
-	svn co -r r200253 http://llvm.org/svn/llvm-project/lldb/trunk
 
 Commands which are implemented:
 	stepo       - step over some instructions (call/movs/stos/cmps/loop)
 	dd          - dump hex data at certain address (keep compatibility with .gdbinit)
 		      this shoud be db command
 	ctx/context - dump registers and assembly
-	lb	    - load breakpoints from file and apply them (currently only func names are applied)	 	
+	lb	    - load breakpoints from file and apply them (currently only func names are applied)	 
+	lb_rva	    - load breakpoints from file and apply to main executable, only RVA in this case
+		      and command will determine main program base and apply breaks	
 	u	    - dump instructions at certain address (SoftICE like u command style)
 	ddword	    - dump data as dword 
 	dq	    - dump data as qword
 	dw	    - dump data as word
 	iphone	    - connect to debugserver running on iPhone 
-	
+	findmem	    - command to search memory 
+		      [options]
+		      -s searches for specified string
+		      -u searches for specified unicode string
+                      -b searches binary (eg. -b 4142434445 will find ABCDE anywhere in mem)
+		      -d searched dword  (eg. -d 0x41414141)
+                      -q searched qword  (eg. -d 0x4141414141414141)
+		      -f loads patern from file if it's tooooo big to fit into any of specified
+                         options
+		      -c specify if you want to find N occurances (default is all)
+	bt	    - broken... and removed, now thread/frame information is by default shown on every
+	              hook-stop by lldb itself...
+
 	hook-stop can be added only when target exists, before it's not possible (maybe in later versions
 	of lldb it is or will be possible but...). Trick to get arround this is to create thread which will
 	try to add hook-stop, and will continue doing so until it's done. This could cause some raise conditions
@@ -55,11 +49,6 @@ Commands which are implemented:
 		PlatformDarwin::ARMGetSupportedArchitectureAtIndex  <-- maybe wrong, but you have
 									idea what they support
 
-	TODO:
-		Add code to highlight only changed flags (both x86/x86_64 and ARM)
-	UPDATE:
-		lldbinit.py should work now with latest lldb from svn. Some of the commands
-		must execute in Async way, which is added now in several places.
 '''
 
 if __name__ == "__main__":
@@ -75,6 +64,8 @@ import	os
 import  thread
 import  time
 import	struct
+import	argparse
+import	subprocess
 
 old_eax = 0;
 old_ecx = 0;
@@ -145,20 +136,12 @@ COLOR_REGVAL_MODIFIED  = RED
 COLOR_SEPARATOR = BLUE
 COLOR_CPUFLAGS = RED
 COLOR_HIGHLIGHT_LINE = CYAN
-#stop-disassembly-count
-#stop-disassembly-display
-#frame-format
-#thread-format
-#prompt	
 
 arm_type = "thumbv7-apple-ios";
 
 GlobalListOutput = [];
 
 hook_stop_added = 0;
-
-thread_format = "";
-frame_format  = "";
 
 def	wait_for_hook_stop():
 	while True:
@@ -188,61 +171,33 @@ def	__lldb_init_module(debugger, internal_dict):
 			return;	
 	res = lldb.SBCommandReturnObject();
         
-	#get thread-format
-	#get frame-format
-	global	thread_format;
-	global	frame_format;
-
-	#lldb.debugger.GetCommandInterpreter().HandleCommand("settings show thread-format", res);
-	#if res.Succeeded():
-	#	thread_format = res.GetOutput();	
-	#lldb.debugger.GetCommandInterpreter().HandleCommand("settings show frame-format", res);
-	#if res.Succeeded():
-	#	frame_format  = res.GetOutput();
-	#lldb.debugger.GetCommandInterpreter().HandleCommand("settings set thread-format \"\"", res);
-        #lldb.debugger.GetCommandInterpreter().HandleCommand("settings set frame-format \"\"", res);
-
-	thread_format = lldb.debugger.GetInternalVariableValue("thread-format", lldb.debugger.GetInstanceName()).GetStringAtIndex(0);
-	frame_format  = lldb.debugger.GetInternalVariableValue("frame-format",  lldb.debugger.GetInstanceName()).GetStringAtIndex(0);
-	lldb.debugger.SetInternalVariable("thread-format", "", lldb.debugger.GetInstanceName());
-	lldb.debugger.SetInternalVariable("frame-format" , "", lldb.debugger.GetInstanceName());
-
 	lldb.debugger.GetCommandInterpreter().HandleCommand("settings set target.x86-disassembly-flavor intel", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.stepo stepo", res);                               
         lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.HandleHookStopOnTarget HandleHookStopOnTarget", res);   
         lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.dd dd", res);                                           
         lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.si si", res);
-	#lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.c  c", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.r  r", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.r  run", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.HandleHookStopOnTarget ctx", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.HandleHookStopOnTarget context", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.DumpInstructions u", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.LoadBreakPoints lb", res);
+	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.LoadBreakPointsRva lbrva", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.dq dq", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.ddword ddword", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.dw dw", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.IphoneConnect iphone", res);
-	#lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.init init", res);
-	#lldb.debugger.GetCommandInterpreter().HandleCommand("target stop-hook add -o \"HandleHookStopOnTarget\"", res)
-	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.back_trace bt", res);
-	                       
-       	#if res.Succeeded() == True:
-	#	hook_stop_added = 1;
-	#else:
-	#	print("[*] hook-stop not initialized...");
-	#	print("[*] type init once target is loaded..."); 
-	#debugger.HandleCommand("target stop-hook add -o \"HandleHookStopOnTarget\"");
+	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.findmem findmem", res);                       
+       	
+
 	'''
 		target stop-hook can be added only when target is loaded, thus I create thread
 		to execute this command until it returns success... dunno if this is ok, or thread
 		safe, but I hate to add extra command "init" or such to install this hook...
 	'''
 	thread.start_new_thread(wait_for_hook_stop, ());
-
-	lldb.debugger.GetCommandInterpreter().HandleCommand("settings set prompt \"\r\033[31m(lldb) \033[0m\"", res);                             
-        #lldb.debugger.GetCommandInterpreter().HandleCommand("settings set frame-format \"\n\"", res);                                           
-        #lldb.debugger.GetCommandInterpreter().HandleCommand("settings set thread-format \"\"", res);                                            
+	
+	#lldb.debugger.GetCommandInterpreter().HandleCommand("settings set prompt \"\033[01;31m(lldb) \033[0m\"", res);                                                                    
         lldb.debugger.GetCommandInterpreter().HandleCommand("settings set stop-disassembly-count 0", res);                                      
         return;
 
@@ -250,7 +205,30 @@ def	__lldb_init_module(debugger, internal_dict):
 def	get_arch():
 	return lldb.debugger.GetSelectedTarget().triple.split('-')[0];
 def 	get_frame():
-        return lldb.debugger.GetSelectedTarget().process.selected_thread.GetSelectedFrame(); 
+        #return lldb.debugger.GetSelectedTarget().process.selected_thread.GetSelectedFrame(); 
+	#return lldb.debugger.GetSelectedTarget().GetProcess().GetSelectedThread().GetSelectedFrame()
+	#return lldb.debugger.GetTargetAtIndex(0).process.selected_thread.GetFrameAtIndex(0);
+		
+	#return frame for stopped thread... there should be one at least...
+	ret = None;
+	for t in get_process():
+		if t.GetStopReason() != lldb.eStopReasonNone and t.GetStopReason() != lldb.eStopReasonInvalid:
+			ret = t.GetFrameAtIndex(0);
+			
+	return ret;
+
+def	get_process():
+	return lldb.debugger.GetSelectedTarget().process; #GetTargetAtIndex(0).process;
+
+def     evaluate(command):
+        value = get_frame().EvaluateExpression(command);
+        if value.IsValid() == False:
+                return None;
+        try:
+                value = long(value.GetValue(), 10);
+                return value;
+        except:
+                return None;
 
 def	is_i386():
 	arch = get_arch();
@@ -269,6 +247,10 @@ def	is_arm():
 	if "arm" in arch:
 		return True;
 	return False;
+
+def	get_pointer_size():
+	poisz = evaluate("sizeof(long)");
+	return poisz;
 
 def	color_reset():
 	output("\033[0m");
@@ -298,19 +280,17 @@ def	color(x):
 	output(out_col);
 
 def	output(x):
-        #sys.stdout.flush();
-	#sys.stdout.write(x);
-	#sys.stdout.flush();
 	global GlobalListOutput;
-	#print("Adding to the list " + x);
         GlobalListOutput.append(x);
         
 def get_register(reg_name):
 	regs = get_GPRs();
+	if regs == None:
+		return "0";
 	for reg in regs:
 		if reg_name == reg.GetName():
 			return reg.GetValue();
-	return 0; 
+	return "0"; #0; 
 
 def get_registers(kind):
     """Returns the registers given the frame and the kind of registers desired.
@@ -491,7 +471,7 @@ def     reg64():
 		color(COLOR_REGVAL);
 	else:
 		color(COLOR_REGVAL_MODIFIED);
-	output("0x%.016lX" % (rsp));
+	output("0x%.016lX" % (rdx));
 	old_rdx = rdx;
 	
 	color(COLOR_REGNAME);
@@ -1068,7 +1048,23 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 	global GlobalListOutput;
 	global arm_type;
 	
-	debugger.SetAsync(False);	
+	debugger.SetAsync(True);	
+	frame = get_frame();
+	if not frame: return;
+	        
+	thread= frame.GetThread();
+	while True:	
+		frame = get_frame();
+		thread = frame.GetThread();
+		#print("----------------------------------");
+		#for t in get_process():
+		#	print("Thread stop reason : %d" % (t.GetStopReason()));
+        
+		if thread.GetStopReason() == lldb.eStopReasonNone or thread.GetStopReason() == lldb.eStopReasonInvalid: 
+			time.sleep(0.001);
+		else:
+			break;
+	
 	GlobalListOutput = [];
 	
 	arch = get_arch();
@@ -1104,7 +1100,7 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 	        pc = get_register("rip");
 	elif is_arm():
 		pc = get_register("pc");        
-	#debugger.HandleCommand("disassemble --start-address=" + pc + " --count=8");
+	
         res = lldb.SBCommandReturnObject();
         if is_arm():
 		cpsr = int(get_register("cpsr"), 16); 
@@ -1117,11 +1113,28 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 		lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble -A " + arm_type + " --start-address=" + pc + " --count=8", res)
        	else:
 		lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=" + pc + " --count=8", res);
-	data = res.GetOutput();
+	data = res.GetOutput(); 
 	#split lines... and mark currently executed code...
 	data = data.split("\n");
-	for x in data:
-		if x[0:2] == "->":
+	#detemine what to hl, as sometimes lldb won't put => into stoped thread... well...
+	#need to check if first sym is => or '  ' which means this is name without symol
+	#symbols are stored 1st so here we go...
+	line_to_hl = 0;
+	#if data[0][0:2] == "->":
+	#	line_to_hl = 0;
+	#if data[0][0:2] != '  ':
+	#	line_to_hl = 1;
+	
+	#now we look when pc is held in disassembly and we color only that line	
+	pc_text = int(pc, 16);
+	pc_text = hex(pc_text);
+	#print(pc_text);
+	for idx,x in enumerate(data):
+		if pc_text in x:
+			line_to_hl = idx;
+			break;
+	for idx,x in enumerate(data):
+		if line_to_hl == idx: #x[0:2] == "->" and idx < 3:
 			color(COLOR_HIGHLIGHT_LINE);
 			color_bold();
 			output(x);
@@ -1131,25 +1144,74 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 		output("\n");
 	#output(res.GetOutput());
         color(COLOR_SEPARATOR);
-        if is_i386() or is_arm():
+        if get_pointer_size() == 4: #is_i386() or is_arm():
                 output("---------------------------------------------------------------------------------------");
-        elif is_x64():
+        elif get_pointer_size() == 8: #is_x64():
                 output("-----------------------------------------------------------------------------------------------------------------------------");
         color_reset();
        	output("\n");
 	
-	#stop reason is just a number, we need StopDescription...
-	#output("Stop reason : " + str(lldb.debugger.GetSelectedTarget().process.selected_thread.GetStopReason())); 
-	#output("\n");
-	output("Stop reason : " + str(lldb.debugger.GetSelectedTarget().process.selected_thread.GetStopDescription(100)));
+	output("Stop reason : " + str(thread.GetStopDescription(100))); #str(lldb.debugger.GetSelectedTarget().process.selected_thread.GetStopDescription(100)));
+        output("\r");	
+	data = "".join(GlobalListOutput);
 	
-	print("".join(GlobalListOutput));
+	result.PutCString(data);
+	result.SetStatus(lldb.eReturnStatusSuccessFinishResult);  
+	return 0;
+	
+def	LoadBreakPointsRva(debugger, command, result, dict):
+	global	GlobalOutputList;
+	GlobalOutputList = [];
+	'''
+	frame = get_frame();
+        target = lldb.debugger.GetSelectedTarget();
 
-	result.SetStatus(lldb.eReturnStatusSuccessFinishNoResult);
+        nummods = target.GetNumModules();
+        #for x in range (0, nummods):
+        #       mod = target.GetModuleAtIndex(x);
+        #       #print(dir(mod));
+        #       print(target.GetModuleAtIndex(x));              
+        #       for sec in mod.section_iter():
+        #               addr = sec.GetLoadAddress(target);
+        #               name = sec.GetName();
+        #               print(hex(addr));
+
+        #1st module is executable
+        mod = target.GetModuleAtIndex(0);
+        sec = mod.GetSectionAtIndex(0);
+        loadaddr = sec.GetLoadAddress(target);
+        if loadaddr == lldb.LLDB_INVALID_ADDRESS:
+                sec = mod.GetSectionAtIndex(1);
+                loadaddr = sec.GetLoadAddress(target);
+        print(hex(loadaddr));
+	'''
+
+	target = lldb.debugger.GetSelectedTarget();
+	mod = target.GetModuleAtIndex(0);
+        sec = mod.GetSectionAtIndex(0);
+        loadaddr = sec.GetLoadAddress(target);
+        if loadaddr == lldb.LLDB_INVALID_ADDRESS:
+                sec = mod.GetSectionAtIndex(1);
+                loadaddr = sec.GetLoadAddress(target);
+	try:
+		f = open(command, "r");
+	except:
+		output("Failed to load file : " + command);
+		result.PutCString("".join(GlobalListOutput));
+		return;
+	while True:
+		line = f.readline();
+		if not line: break;
+		line = line.rstrip();
+		if not line: break;
+		debugger.HandleCommand("breakpoint set -a " + hex(loadaddr + long(line, 16)));
+	f.close();	
+
 
 def	LoadBreakPoints(debugger, command, result, dict):
 	global GlobalOutputList;
 	GlobalOutputList = [];
+
 	try:
 		f = open(command, "r");
 	except:
@@ -1177,13 +1239,14 @@ def	LoadBreakPoints(debugger, command, result, dict):
 def	si(debugger, command, result, dict):
 	debugger.SetAsync(True);
 	res = lldb.SBCommandReturnObject();
-        lldb.debugger.GetCommandInterpreter().HandleCommand("thread step-inst", res);
-	return;	
+	lldb.debugger.GetSelectedTarget().process.selected_thread.StepInstruction(False);
+	result.SetStatus(lldb.eReturnStatusSuccessFinishNoResult);
 
 def	c(debugger, command, result, dict):
 	debugger.SetAsync(True);
 	res = lldb.SBCommandReturnObject();
-	lldb.debugger.GetCommandInterpreter().HandleCommand("process continue", res);
+	lldb.debugger.GetSelectedTarget().GetProcess().Continue();
+	result.SetStatus(lldb.eReturnStatusSuccessFinishNoResult );
 
 def	r(debugger, command, result, dict):
 	debugger.SetAsync(True);
@@ -1193,32 +1256,8 @@ def	r(debugger, command, result, dict):
                 command = command[index+2:];
 	#strip -c/bin/sh or -c/bin/bash -- when arguments are passed to cmd line...
 	lldb.debugger.GetCommandInterpreter().HandleCommand("process launch -- " + command, res);
+	result.SetStatus(lldb.eReturnStatusSuccessFinishNoResult );
 
-def	back_trace(debugger, command ,result, dict):
-	global	thread_format;
-	global	frame_format;
-	global  GlobalOutputList;
-        GlobalOutputList = [];
-
-	debugger.SetAsync(True);
-	res = lldb.SBCommandReturnObject();
-	
-	debugger.SetInternalVariable("thread-format", thread_format, debugger.GetInstanceName());
-	debugger.SetInternalVariable("frame-format" , frame_format , debugger.GetInstanceName());
-
-	#thread_format = lldb.debugger.GetInternalVariableValue("thread-format", lldb.debugger.GetInstanceName());
-
-	lldb.debugger.GetCommandInterpreter().HandleCommand("thread backtrace", res);
-	if res.Succeeded() == True:
-		output(res.GetOutput());
-		pass;
-	else:
-		print("thread backtrace failed...");
-	debugger.SetInternalVariable("thread-format", "", debugger.GetInstanceName());
-	debugger.SetInternalVariable("frame-format" , "", debugger.GetInstanceName());	
-
-	
-	print("".join(GlobalListOutput));
 '''
 	Handles 'u' command which displays instructions. Also handles output of
 	'disassemble' command ...
@@ -1236,7 +1275,6 @@ def	DumpInstructions(debugger, command, result, dict):
                         arm_type = "thumbv7-apple-ios";
                 else:
                         arm_type = "armv7-apple-ios";
-
 	res = lldb.SBCommandReturnObject();
 	cmd = command.split();
 	if len(cmd) == 0 or len(cmd) > 2:
@@ -1278,12 +1316,17 @@ def	DumpInstructions(debugger, command, result, dict):
                           	  bool hardware)
 	
 '''
+
+bplist = [];
+
 def	stepo(debugger, command, result, dict):
         global GlobalListOutput; 
         global arm_type;
 	GlobalListOutput = [];
-       	debugger.SetAsync(True); 
+       	debugger.SetAsync(True);
         arch = get_arch();
+	
+	result.SetStatus(lldb.eReturnStatusSuccessFinishNoResult);
         
         err = lldb.SBError();
         target = lldb.debugger.GetSelectedTarget();
@@ -1299,63 +1342,59 @@ def	stepo(debugger, command, result, dict):
 
         res = lldb.SBCommandReturnObject();
 	if is_arm():
-        	lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble -A " +arm_type + " --start-address=$pc --count=2", res);
+        	lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble -A " +arm_type + " --raw --start-address=$pc --count=2", res);
 	else:
-		lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --start-address=$pc --count=2", res);	
+		lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --raw --start-address=$pc --count=2", res);	
 	
+	#lldb.debugger.GetCommandInterpreter().HandleCommand("x/2i $pc", res);
 	if res.Succeeded() != True:
 		output("[X] Error in stepo... can't disassemble at pc");
 		return;
-	
+
+	#use regex to locate hex addrress which is between 8-16
+	#as lldb changes disassembly very often... sometimes is has ->
+	#sometimes doesn't, and instead of always looking for different
+	#pattern, just use regex... Matching hex is dropped to 4 digits
+	#because of x32 where it prints 4 digits...	
 	stuff = res.GetOutput();	
 	stuff = stuff.splitlines(True);
-        #print(stuff);
-	stuff_new = [];
-	for x in stuff:
-		if x[0:3] == "-> ":
-			stuff_new.append(x);
-		if x[0:3] == "   ":
-			stuff_new.append(x);
-	#while stuff[0][0:2] != "->":
-	#	stuff = stuff[1:];
-	stuff = stuff_new;
-	#Split to 2 lines separator :
-	#and than separate with " " space to get mnemonic
-	#0xxxxxxxxx:  ldr    r3, [pc, #112]            ; _dyld_start + 132
-	#0xxxxxxxxx:  sub    r0, pc, #0x8
-	current_pc = stuff[0];
-	current_pc = current_pc[2:];
-	next_pc    = stuff[1];
-	current_pc = current_pc.split()[0];
-	next_pc	   = next_pc.split()[0];
-	current_pc = current_pc[:-1];
-	next_pc	   = next_pc[:-1];		
-	current_pc = int(current_pc, 16);
-	next_pc    = int(next_pc, 16);
+       	p = re.compile("0x[\da-fA-F]{4,16}");
+	try:
+		#and yet another update... seriously... 
+		current_pc = p.search(stuff[0]).group(0);
+	except:
+		stuff = stuff[1:];
+		current_pc = p.search(stuff[0]).group(0);
 	
-	current_inst = stuff[0];
-	current_inst = current_inst[2:];
-	current_inst = current_inst.split(":")[1];
-	current_inst = current_inst.split()[0];
+	next_pc    = p.search(stuff[1]).group(0);
 
-	pc_inst = current_inst;	
-       	 
+	current_pc = long(current_pc, 16);
+	next_pc	   = long(next_pc, 16);
+	
+	pc_inst = stuff[0].split(": ")[1];
+	pc_inst = pc_inst.split()[0];
+
 	if is_arm():
 		if "blx" in pc_inst or "bl" in pc_inst:
 			breakpoint = target.BreakpointCreateByAddress(next_pc);
+			breakpoint.SetThreadID(get_frame().GetThread().GetThreadID());
 			breakpoint.SetOneShot(True);
-			debugger.HandleCommand("c");
+			breakpoint.SetThreadID(get_frame().GetThread().GetThreadID());
+			target.GetProcess().Continue();
+			#debugger.HandleCommand("c");
+			#debugger.HandleCommand("thread step-inst-over");
 			return;
         	else:
-			debugger.HandleCommand("si");
+			lldb.debugger.GetSelectedTarget().process.selected_thread.StepInstruction(False);
+			#debugger.HandleCommand("si");
 			return;
         if "call" in pc_inst or "movs" in pc_inst or "stos" in pc_inst or "loop" in pc_inst or "cmps" in pc_inst:
-                
-                breakpoint = target.BreakpointCreateByAddress(next_pc);
+		breakpoint = target.BreakpointCreateByAddress(next_pc);
                 breakpoint.SetOneShot(True);
-                debugger.HandleCommand("c");
-        else:
-                debugger.HandleCommand("si");
+		breakpoint.SetThreadID(get_frame().GetThread().GetThreadID());
+		target.GetProcess().Continue();
+	else:
+                lldb.debugger.GetSelectedTarget().process.selected_thread.StepInstruction(False);
 
 def hexdump(addr, chars, sep, width ):
         l = [];
@@ -1364,17 +1403,24 @@ def hexdump(addr, chars, sep, width ):
 	        chars = chars[width:]
 	        line = line.ljust( width, '\000' )
 	        arch = get_arch();
-		if is_i386() or is_arm():
+		if get_pointer_size() == 4: #is_i386() or is_arm():
 			szaddr = "0x%.08X" % addr;
-	        elif is_x64():
+	        else: # is_x64():
 			szaddr = "0x%.016lX" % addr;
 		l.append("\033[1m%s :\033[0m %s%s \033[1m%s\033[0m" % (szaddr, sep.join( "%02X" % ord(c) for c in line ), sep, quotechars( line )));
 	        addr += 0x10;
 	return "\n".join(l);
 
 def quotechars( chars ):
-        return ''.join( ['.', c][c.isalnum()] for c in chars )
-	
+        #return ''.join( ['.', c][c.isalnum()] for c in chars )
+	data = "";
+	for x in chars:
+		if ord(x) >= 0x20 and ord(x) <= 126:
+			data += x;
+		else:		
+			data += ".";
+	return data;
+
 '''
 	Output nice hexdump... Should be db (in the future) so we can give dw/dd/dq
 	outputs as it's done with any normal debugger...
@@ -1411,10 +1457,10 @@ def     dd(debugger, command, result, dict):
                 size = size - 1;
         membuff = membuff + "\x00" * (0x100-size); 
         color(BLUE);
-        if is_i386() or is_arm():
+        if get_pointer_size() == 4: #is_i386() or is_arm():
                 output("[0x0000:0x%.08X]" % value);
                 output("------------------------------------------------------");
-        elif is_x64():
+        else: #is_x64():
                 output("[0x0000:0x%.016lX]" % value);
                 output("------------------------------------------------------");
         color_bold();
@@ -1425,9 +1471,9 @@ def     dd(debugger, command, result, dict):
         index = 0;
         while index < 0x100:
                 data = struct.unpack("B"*16, membuff[index:index+0x10]);
-                if is_i386() or is_arm():
+                if get_pointer_size() == 4: #is_i386() or is_arm():
                         szaddr = "0x%.08X" % value;
-                elif is_x64():
+                else: #is_x64():
                         szaddr = "0x%.016lX" % value;
 		fmtnice = "%.02X %.02X %.02X %.02X %.02X %.02X %.02X %.02X"
 		fmtnice = fmtnice + " - " + fmtnice;
@@ -1497,10 +1543,10 @@ def     dq(debugger, command, result, dict):
                 return;
 
         color(BLUE);
-        if is_i386() or is_arm():
+        if get_pointer_size() == 4: #is_i386() or is_arm():
                 output("[0x0000:0x%.08X]" % value);
                 output("-------------------------------------------------------");
-        elif is_x64():
+        else: #is_x64():
                 output("[0x0000:0x%.016lX]" % value);
                 output("-------------------------------------------------------");
         color_bold();
@@ -1510,9 +1556,9 @@ def     dq(debugger, command, result, dict):
 	index = 0;
 	while index < 0x100:
 		(mem0, mem1, mem2, mem3) = struct.unpack("QQQQ", membuff[index:index+0x20]);
-		if is_i386() or is_arm():
+		if get_pointer_size() == 4: #is_i386() or is_arm():
 			szaddr = "0x%.08X" % value;
-		elif is_x64():
+		else: #is_x64():
 			szaddr = "0x%.016lX" % value;
 		output("\033[1m%s :\033[0m %.016lX %.016lX %.016lX %.016lX" % (szaddr, mem0, mem1, mem2, mem3));
 		if index + 0x20 != 0x100:
@@ -1555,10 +1601,10 @@ def     ddword(debugger, command, result, dict):
 		size = size - 4;
 	membuff = membuff + "\x00" * (0x100-size);
 	color(BLUE);
-        if is_i386() or is_arm():
+        if get_pointer_size() == 4: #is_i386() or is_arm():
                 output("[0x0000:0x%.08X]" % value);
                 output("----------------------------------------");
-        elif is_x64():
+        else: #is_x64():
                 output("[0x0000:0x%.016lX]" % value);
                 output("----------------------------------------");
         color_bold();
@@ -1568,9 +1614,9 @@ def     ddword(debugger, command, result, dict):
         index = 0;
         while index < 0x100:
                 (mem0, mem1, mem2, mem3) = struct.unpack("IIII", membuff[index:index+0x10]);
-                if is_i386() or is_arm():
+                if get_pointer_size() == 4: #is_i386() or is_arm():
                         szaddr = "0x%.08X" % value;
-                elif is_x64():
+                else:  #is_x64():
                         szaddr = "0x%.016lX" % value;
                 output("\033[1m%s :\033[0m %.08X %.08X %.08X %.08X \033[1m%s\033[0m" % (szaddr, 
 											mem0, 
@@ -1619,10 +1665,10 @@ def     dw(debugger, command, result, dict):
         membuff = membuff + "\x00" * (0x100-size);
 
         color(BLUE);
-        if is_i386() or is_arm():
+        if get_pointer_size() == 4: #is_i386() or is_arm():
                 output("[0x0000:0x%.08X]" % value);
                 output("--------------------------------------------");
-        elif is_x64():
+        else: #is_x64():
                 output("[0x0000:0x%.016lX]" % value);
                 output("--------------------------------------------");
         color_bold();
@@ -1632,9 +1678,9 @@ def     dw(debugger, command, result, dict):
         index = 0;
         while index < 0x100:
                 data = struct.unpack("HHHHHHHH", membuff[index:index+0x10]);
-                if is_i386() or is_arm():
+                if get_pointer_size() == 4: #is_i386() or is_arm():
                         szaddr = "0x%.08X" % value;
-                elif is_x64():
+                else: #is_x64():
                         szaddr = "0x%.016lX" % value;
                 output("\033[1m%s :\033[0m %.04X %.04X %.04X %.04X %.04X %.04X %.04X %.04X \033[1m%s\033[0m" % (szaddr, 
 			data[0],
@@ -1683,4 +1729,142 @@ def IphoneConnect(debugger, command, result, dict):
 	else:
 		output(res.GetOutput());
 	result.PutCString("".join(GlobalListOutput));
-	result.SetStatus(lldb.eReturnStatusSuccessFinishResult);	
+	result.SetStatus(lldb.eReturnStatusSuccessFinishResult);
+
+def findmem(debugger, command, result, dict):
+        global GlobalListOutput;
+        GlobalListOutput = [];
+
+	arg = str(command);	
+	parser = argparse.ArgumentParser(prog="lldb");
+        parser.add_argument("-s", "--string",  help="Search string");
+        parser.add_argument("-u", "--unicode", help="Search unicode string");
+        parser.add_argument("-b", "--binary",  help="Serach binary string");
+        parser.add_argument("-d", "--dword",   help="Find dword (native packing)");
+        parser.add_argument("-q", "--qword",   help="Find qword (native packing)");
+        parser.add_argument("-f", "--file" ,   help="Load find pattern from file");
+        parser.add_argument("-c", "--count",   help="How many occurances to find, default is all");
+
+        parser = parser.parse_args(arg.split());
+	
+        if parser.string != None:
+                search_string = parser.string;
+        elif parser.unicode != None:
+                search_string  = unicode(parser.unicode);
+        elif parser.binary != None:
+                search_string = parser.binary.decode("hex");
+        elif parser.dword != None:
+                dword = evaluate(parser.dword);
+		if dword == None:
+			print("Error evaluating : " + parser.dword);
+			return;
+                search_string = struct.pack("I", dword & 0xffffffff);
+        elif parser.qword != None:
+                qword = evaluate(parser.qword);
+                if qword == None:
+			print("Error evaluating : " + parser.qword);
+			return;
+		search_string = struct.pack("Q", qword & 0xffffffffffffffff);
+        elif parser.file != None:
+                f = 0;
+                try:
+                        f = open(parser.file, "rb");
+                except:
+                        print("Failed to open file : " + parser.file);
+                        return;
+                search_string = f.read();
+                f.close();
+        else:
+                print("Wrong option... use findmem --help");
+                return;
+	
+	count = -1;
+        if parser.count != None:
+        	count = evaluate(parser.count);
+		if count == None:
+			print("Error evaluating count : " + parser.count);
+			return;
+	
+	process = lldb.debugger.GetSelectedTarget().GetProcess();
+	pid = process.GetProcessID();
+	output_data = subprocess.check_output(["/usr/bin/vmmap", "%d" % pid])
+	lines = output_data.split("\n");
+	#print(lines);
+	#this relies on output from /usr/bin/vmmap so code is dependant on that 
+	#only reason why it's used is for better description of regions, which is
+	#nice to have. If they change vmmap in the future, I'll use my version 
+	#and that output is much easier to parse...
+	newlines = [];
+	for x in lines:
+		p = re.compile("([\S\s]+)\s([\da-fA-F]{16}-[\da-fA-F]{16}|[\da-fA-F]{8}-[\da-fA-F]{8})");
+		m = p.search(x);
+		if not m: continue;
+		tmp = [];
+		mem_name  = m.group(1);
+                mem_range = m.group(2);
+                mem_start = long(mem_range.split("-")[0], 16);  #0x000000-0x000000
+                mem_end   = long(mem_range.split("-")[1], 16);
+		tmp.append(mem_name);
+		tmp.append(mem_start);		
+		tmp.append(mem_end);
+		newlines.append(tmp);
+	
+	lines = sorted(newlines, key=lambda sortnewlines: sortnewlines[1]);
+	#move line extraction a bit up, thus we can latter sort it, as vmmap gives
+	#readable pages only, and then writable pages, so it looks ugly a bit :)
+	newlines = [];
+	for x in lines:
+		mem_name = x[0];
+		mem_start= x[1];
+		mem_end  = x[2];
+		mem_size = mem_end - mem_start;
+	
+		err = lldb.SBError();
+        	    
+                membuff = process.ReadMemory(mem_start, mem_size, err);
+                if err.Success() == False:
+                        #output(str(err));
+                        #result.PutCString("".join(GlobalListOutput));
+                        continue;
+		off = 0;
+		base_displayed = 0;
+
+		while True:
+			if count == 0: return;
+			idx = membuff.find(search_string);
+			if idx == -1: break;
+			if count != -1:
+				count = count - 1;		
+			off += idx;
+	
+			GlobalListOutput = [];	
+			
+			if get_pointer_size() == 4:
+				ptrformat = "%.08X";
+			else:
+				ptrformat = "%.016lX";
+
+			color_reset();	
+			output("Found at : ");
+			color(GREEN);
+			output(ptrformat % (mem_start + off));
+			color_reset();
+			if base_displayed == 0:
+				output(" base : ");
+				color(YELLOW);
+				output(ptrformat % mem_start);
+				color_reset();
+				base_displayed = 1;
+			else:
+				output("        ");
+				if get_pointer_size() == 4:
+					output(" " * 8);
+				else:
+					output(" " * 16);
+			#well if somebody allocated 4GB of course offset will be to small to fit here
+			#but who cares...
+			output(" off : %.08X %s" % (off, mem_name));
+			print("".join(GlobalListOutput));
+			membuff = membuff[idx+len(search_string):];
+			off += len(search_string);
+	return;
