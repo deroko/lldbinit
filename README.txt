@@ -27,8 +27,8 @@ Commands which are implemented:
 		      -s searches for specified string
 		      -u searches for specified unicode string
                       -b searches binary (eg. -b 4142434445 will find ABCDE anywhere in mem)
-		      -d searched dword  (eg. -d 0x41414141)
-                      -q searched qword  (eg. -d 0x4141414141414141)
+		      -d searches dword  (eg. -d 0x41414141)
+                      -q searches qword  (eg. -d 0x4141414141414141)
 		      -f loads patern from file if it's tooooo big to fit into any of specified
                          options
 		      -c specify if you want to find N occurances (default is all)
