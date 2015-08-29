@@ -376,30 +376,31 @@ def     reg64():
         global old_rflags;
         global old_rip;
 
-        rax = int(get_register("rax"), 16);
-        rcx = int(get_register("rcx"), 16);
-        rdx = int(get_register("rdx"), 16);
-        rbx = int(get_register("rbx"), 16);
-        rsp = int(get_register("rsp"), 16);
-        rbp = int(get_register("rbp"), 16);
-        rsi = int(get_register("rsi"), 16);
-        rdi = int(get_register("rdi"), 16);
-        r8  = int(get_register("r8"), 16);
-        r9  = int(get_register("r9"), 16);
-        r10 = int(get_register("r10"), 16);
-        r11 = int(get_register("r11"), 16);
-        r12 = int(get_register("r12"), 16);
-        r13 = int(get_register("r13"), 16);
-        r14 = int(get_register("r14"), 16);
-        r15 = int(get_register("r15"), 16);
-        rip = int(get_register("rip"), 16);
-        rflags = int(get_register("rflags"), 16);
-        cs = int(get_register("cs"), 16);
-        gs = int(get_register("gs"), 16);
-        fs = int(get_register("fs"), 16);
-        #not needed as x64 doesn't use them...
-	#ds = int(get_register("ds"), 16);
-        #ss = int(get_register("ss"), 16);
+        rax = int(str(get_register("rax")).strip().split()[0], 16);
+        rcx = int(str(get_register("rcx")).strip().split()[0], 16);
+        rdx = int(str(get_register("rdx")).strip().split()[0], 16);
+        rbx = int(str(get_register("rbx")).strip().split()[0], 16);
+        rsp = int(str(get_register("rsp")).strip().split()[0], 16);
+        rbp = int(str(get_register("rbp")).strip().split()[0], 16);
+        rsi = int(str(get_register("rsi")).strip().split()[0], 16);
+        rdi = int(str(get_register("rdi")).strip().split()[0], 16);
+        r8  = int(str(get_register("r8")).strip().split()[0], 16);
+        r9  = int(str(get_register("r9")).strip().split()[0], 16);
+        r10 = int(str(get_register("r10")).strip().split()[0], 16);
+        r11 = int(str(get_register("r11")).strip().split()[0], 16);
+        r12 = int(str(get_register("r12")).strip().split()[0], 16);
+        r13 = int(str(get_register("r13")).strip().split()[0], 16);
+        r14 = int(str(get_register("r14")).strip().split()[0], 16);
+        r15 = int(str(get_register("r15")).strip().split()[0], 16);
+        rip = int(str(get_register("rip")).strip().split()[0], 16);
+        rflags = int(str(get_register("rflags")).strip().split()[0], 16);
+        cs = int(str(get_register("cs")).strip().split()[0], 16);
+        gs = int(str(get_register("gs")).strip().split()[0], 16);
+        fs = int(str(get_register("fs")).strip().split()[0], 16);
+        
+        # not needed as x64 doesn't use them...
+        # ds = int(str(get_register("ds")).strip().split()[0], 16);
+        # ss = int(str(get_register("ss")).strip().split()[0], 16);
         
         color(COLOR_REGNAME);
         output("  RAX: ");
@@ -1130,7 +1131,7 @@ def	HandleHookStopOnTarget(debugger, command, result, dict):
 	#	line_to_hl = 1;
 	
 	#now we look when pc is held in disassembly and we color only that line	
-	pc_text = int(pc, 16);
+	pc_text = int(str(pc).strip().split()[0], 16);
 	pc_text = hex(pc_text);
 	#print(pc_text);
 	for idx,x in enumerate(data):
