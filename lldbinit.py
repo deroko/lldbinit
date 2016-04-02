@@ -176,8 +176,8 @@ def	__lldb_init_module(debugger, internal_dict):
         lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.HandleHookStopOnTarget HandleHookStopOnTarget", res);   
         lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.dd dd", res);                                           
         lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.si si", res);
-	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.r  r", res);
-	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.r  run", res);
+	#lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.r  r", res);
+	#lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.r  run", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.HandleHookStopOnTarget ctx", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.HandleHookStopOnTarget context", res);
 	lldb.debugger.GetCommandInterpreter().HandleCommand("command script add -f lldbinit.DumpInstructions u", res);
