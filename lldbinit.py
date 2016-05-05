@@ -1346,41 +1346,38 @@ def	stepo(debugger, command, result, dict):
                         arm_type = "armv7-apple-ios";
 
         res = lldb.SBCommandReturnObject();
+	#if is_arm():
+        #	lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble -A " +arm_type + " --raw --start-address=$pc --count=2", res);
+	#else:
+	#	lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --raw --start-address=$pc --count=2", res);	
+	
+	lldb.debugger.GetCommandInterpreter().HandleCommand("x/2i $pc", res);
+        if res.Succeeded() != True:
+                output("[X] Error in stepo... can't disassemble at pc");
+                return;
+
+        #use regex to locate hex addrress which is between 8-16
+        #as lldb changes disassembly very often... sometimes is has ->
+        #sometimes doesn't, and instead of always looking for different
+        #pattern, just use regex... Matching hex is dropped to 4 digits
+        #because of x32 where it prints 4 digits...     
+        stuff = res.GetOutput();
+        stuff = stuff.splitlines(True);
+        newlst = [];
+        for x in stuff:
+                if x == "\n": continue;
+                newlst.append(x);
+        stuff = newlst;
+
+        p = re.compile("0x[\da-fA-F]{1,16}");
+        current_pc = p.search(stuff[0]).group(0);
+        next_pc    = p.search(stuff[1]).group(0);
+        current_pc = long(current_pc, 16);
+        next_pc    = long(next_pc, 16);
+
+        pc_inst = stuff[0].split(";")[0];
 	if is_arm():
-        	lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble -A " +arm_type + " --raw --start-address=$pc --count=2", res);
-	else:
-		lldb.debugger.GetCommandInterpreter().HandleCommand("disassemble --raw --start-address=$pc --count=2", res);	
-	
-	#lldb.debugger.GetCommandInterpreter().HandleCommand("x/2i $pc", res);
-	if res.Succeeded() != True:
-		output("[X] Error in stepo... can't disassemble at pc");
-		return;
-
-	#use regex to locate hex addrress which is between 8-16
-	#as lldb changes disassembly very often... sometimes is has ->
-	#sometimes doesn't, and instead of always looking for different
-	#pattern, just use regex... Matching hex is dropped to 4 digits
-	#because of x32 where it prints 4 digits...	
-	stuff = res.GetOutput();	
-	stuff = stuff.splitlines(True);
-       	p = re.compile("0x[\da-fA-F]{4,16}");
-	try:
-		#and yet another update... seriously... 
-		current_pc = p.search(stuff[0]).group(0);
-	except:
-		stuff = stuff[1:];
-		current_pc = p.search(stuff[0]).group(0);
-	
-	next_pc    = p.search(stuff[1]).group(0);
-
-	current_pc = long(current_pc, 16);
-	next_pc	   = long(next_pc, 16);
-	
-	pc_inst = stuff[0].split(": ")[1];
-	pc_inst = pc_inst.split()[0];
-
-	if is_arm():
-		if "blx" in pc_inst or "bl" in pc_inst:
+		if "blx" in pc_inst or "bl " in pc_inst:
 			breakpoint = target.BreakpointCreateByAddress(next_pc);
 			breakpoint.SetThreadID(get_frame().GetThread().GetThreadID());
 			breakpoint.SetOneShot(True);
