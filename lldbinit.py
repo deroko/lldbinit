@@ -238,7 +238,7 @@ def	is_i386():
 
 def	is_x64():
 	arch = get_arch();
-	if arch == "x86_64":
+	if arch.startswith("x86_64") == True:
 		return True;
 	return False;
 
