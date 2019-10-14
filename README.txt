@@ -9,7 +9,7 @@ Later versions of MacOS come with lldb and Python3 which is bundled with Xcode.
 Thus to install python3 version on later versions:
 cp lldbinitpy3.py ~/
 in $HOME/.lldbinit add:
-command script import lldbinitpy3.py
+command script import ~/lldbinitpy3.py
 
 If you want latest lldb, to compile it from svn we need to do:
 svn co http://llvm.org/svn/llvm-project/lldb/trunk lldb
