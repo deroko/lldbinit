@@ -5,6 +5,12 @@ cp lldbinit.py /Library/Python/2.7/site-packages
 in $HOME/.lldbinit add:
 command script import lldbinit
 
+Later versions of MacOS come with lldb and Python3 which is bundled with Xcode. 
+Thus to install python3 version on later versions:
+cp lldbinitpy3.py ~/
+in $HOME/.lldbinit add:
+command script import lldbinitpy3.py
+
 If you want latest lldb, to compile it from svn we need to do:
 svn co http://llvm.org/svn/llvm-project/lldb/trunk lldb
 xcodebuild -configuration Release
@@ -13,6 +19,7 @@ Commands which are implemented:
 	stepo       - step over some instructions (call/movs/stos/cmps/loop)
 	dd          - dump hex data at certain address (keep compatibility with .gdbinit)
 		      this shoud be db command
+	db          - same as dd for SoftICE enthusiasts	
 	ctx/context - dump registers and assembly
 	lb	    - load breakpoints from file and apply them (currently only func names are applied)	 
 	lb_rva	    - load breakpoints from file and apply to main executable, only RVA in this case
